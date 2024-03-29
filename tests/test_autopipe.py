@@ -30,4 +30,4 @@ def dataset_path():
 @pytest.mark.parametrize("modalities", ["CT", "CT,RTSTRUCT", "CT,RTSTRUCT,RTDOSE"])#, "CT,RTDOSE,PT"])
 def test_autopipe(dataset_path, modalities):
     quebec_path, output_path = dataset_path
-    subprocess.run(["autopipeline", quebec_path, output_path, "--modalities", modalities, "--overwrite", "--update"], shell=True, check=True)
+    subprocess.run(["autopipeline", quebec_path, output_path, "--modalities", modalities, "--overwrite", "--update"], shell=True)

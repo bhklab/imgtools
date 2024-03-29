@@ -78,8 +78,8 @@ class TestIntensity:
                                            (WindowIntensity, {"window": 500, "level": 250}),
                                            (StandardScale, {}),
                                            (MinMaxScale, {"minimum": 0, "maximum": 1000})])
-    def test_intesity(self, op, params):
-        img_cube = copy.deepcopy(blank)
+    def test_intensity(self, op, params):
+        img_cube = copy.copy(blank)
         img_cube[5:15,5:15,5:15] = 1000
 
         intensify = op(**params)
