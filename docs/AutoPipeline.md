@@ -174,14 +174,18 @@ The contours can be selected by creating a YAML file to define a regular express
     ```sh
     OUTPUT_DIRECTORY
     ├── nnUNet_preprocessed
-    ├── nnUNet_raw_data_base
-    │   └── nnUNet_raw_data
-    │       └── Task500_HNSCC
-    │           ├── imagesTr
-    │           ├── imagesTs
-    │           ├── labelsTr
-    │           └── labelsTs
-    └── nnUNet_trained_models
+    ├── nnUNet_raw
+    │   └── Dataset001_HNSCC
+    │       ├── dataset.csv
+    │       ├── dataset.json
+    │       ├── imagesTr
+    │       ├── imagesTs
+    │       ├── labelsTr
+    │       ├── labelsTs
+    │       ├── markdown_images
+    │       ├── nnunet_preprocess_and_train.sh
+    │       └── report.md
+    └── nnUNet_results
     ```
 
 2. **Training Size**
@@ -231,7 +235,7 @@ The contours can be selected by creating a YAML file to define a regular express
 
     ```sh
     OUTPUT_DIRECTORY
-    ├── 0_subject1_0000.nii.gz
+    ├── {DATASET}_{SUBJECT_NUM}_{MODALITY}.nii.gz
     └── ...
     ```
 
@@ -246,8 +250,15 @@ The contours can be selected by creating a YAML file to define a regular express
     A dataset json file may look like this:
     ```json
     {
-        "modality":{
-            "0": "CT"
-        }
+    "channel_names": { 
+        "0": "CT"
+    },
+    "labels": {
+        "background": 0,
+        "GTV": 1
+    },
+    "numTraining": 5,
+    "file_ending": ".nii.gz",
+    "licence": "hands off!"
     }
     ```

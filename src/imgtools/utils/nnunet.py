@@ -1,103 +1,169 @@
-from typing import Tuple, List
-import os
-import pathlib
-import glob
-import json
-import numpy as np
+from typing import Tuple, Dict
+import pathlib, json
 import matplotlib.pyplot as plt
 
+def markdown_report_images(
+    output_folder: str | pathlib.Path, 
+    modality_count: Dict[str, int], 
+    train_total: int, 
+    test_total: int) -> None:
+    output_folder = pathlib.Path(output_folder)
+    images_folder = output_folder / "markdown_images"
 
-def markdown_report_images(output_folder, modality_count):
+    images_folder.mkdir(parents=True, exist_ok=True)
+
+    # Bar plot for modality counts
     modalities = list(modality_count.keys())
     modality_totals = list(modality_count.values())
-    if not os.path.exists(pathlib.Path(output_folder, "markdown_images").as_posix()):
-        os.makedirs(pathlib.Path(output_folder, "markdown_images").as_posix())
-    plt.figure(1)
+    plt.figure()  
     plt.bar(modalities, modality_totals)
-    plt.savefig(pathlib.Path(output_folder, "markdown_images", "nnunet_modality_count.png").as_posix())
+    plt.title("Modality Counts")
+    plt.xlabel("Modalities")
+    plt.ylabel("Counts")
+    plt.savefig(images_folder / "nnunet_modality_count.png")
+    plt.close()  
 
-    plt.figure(2)
-    train_total = len(glob.glob(pathlib.Path(output_folder, "labelsTr", "*.nii.gz").as_posix()))
-    test_total = len(glob.glob(pathlib.Path(output_folder, "labelsTs", "*.nii.gz").as_posix()))
-    plt.pie([train_total, test_total], labels=[f"Train - {train_total}", f"Test - {test_total}"])
-    plt.savefig(pathlib.Path(output_folder, "markdown_images", "nnunet_train_test_pie.png").as_posix())
+    # Pie chart for train/test distribution
+    plt.figure()
+    plt.pie(
+        [train_total, test_total],
+        labels=[f"Train - {train_total}", f"Test - {test_total}"],
+        autopct='%1.1f%%', 
+    )
+    plt.title("Train/Test Distribution")
+    plt.savefig(images_folder / "nnunet_train_test_pie.png")
+    plt.close()
 
-# this code is taken from:
-# Division of Medical Image Computing, German Cancer Research Center (DKFZ)
-# in the nnUNet and batchgenerator repositories
 
-
-def save_json(obj, file: str, indent: int = 4, sort_keys: bool = True) -> None:
+def save_json(
+    obj: dict,
+    file: str | pathlib.Path,  
+    indent: int = 4, 
+    sort_keys: bool = True) -> None:
     with open(file, 'w') as f:
         json.dump(obj, f, sort_keys=sort_keys, indent=indent)
 
-
-def get_identifiers_from_splitted_files(folder: str):
-    uniques = np.unique([i[:-12] for i in subfiles(folder, suffix='.nii.gz', join=False)])
-    return uniques
-
-
-def subfiles(folder: str, join: bool = True, prefix: str = None, suffix: str = None, sort: bool = True) -> List[str]:
-    if join:
-        path_fn = os.path.join
-    else:
-        def path_fn(x, y): return y
-        
-    res = [path_fn(folder, i) for i in os.listdir(folder) if os.path.isfile(os.path.join(folder, i))
-           and (prefix is None or i.startswith(prefix))
-           and (suffix is None or i.endswith(suffix))]
-    if sort:
-        res.sort()
-    return res
-
-
-def generate_dataset_json(output_file: str, imagesTr_dir: str, imagesTs_dir: str, modalities: Tuple,
-                          labels: dict, dataset_name: str, sort_keys=True, license: str = "hands off!", dataset_description: str = "",
-                          dataset_reference="", dataset_release='0.0'):
+def create_train_script(
+        output_directory: str | pathlib.Path,
+        dataset_id: int):
     """
-    :param output_file: This needs to be the full path to the dataset.json you intend to write, so
-    output_file='DATASET_PATH/dataset.json' where the folder DATASET_PATH points to is the one with the
-    imagesTr and labelsTr subfolders
-    :param imagesTr_dir: path to the imagesTr folder of that dataset
-    :param imagesTs_dir: path to the imagesTs folder of that dataset. Can be None
-    :param modalities: tuple of strings with modality names. must be in the same order as the images (first entry
-    corresponds to _0000.nii.gz, etc). Example: ('T1', 'T2', 'FLAIR').
-    :param labels: dict with int->str (key->value) mapping the label IDs to label names. Note that 0 is always
-    supposed to be background! Example: {0: 'background', 1: 'edema', 2: 'enhancing tumor'}
-    :param dataset_name: The name of the dataset. Can be anything you want
-    :param sort_keys: In order to sort or not, the keys in dataset.json
-    :param license:
-    :param dataset_description:
-    :param dataset_reference: website of the dataset, if available
-    :param dataset_release:
-    :return:
+    Creates a bash script (`nnunet_preprocess_and_train.sh`) for running nnUNet training, with paths for raw data,
+    preprocessed data, and trained models. The script ensures environment variables are set and 
+    executes the necessary training commands.
+
+    Parameters:
+    - output_directory (str): The directory where the output and subdirectories are located.
+    - dataset_id (int): The ID of the dataset to be processed.
     """
-    train_identifiers = get_identifiers_from_splitted_files(imagesTr_dir)
+    # Define paths using pathlib
+    output_directory = pathlib.Path(output_directory)
+    shell_path = output_directory / 'nnunet_preprocess_and_train.sh'
+    base_dir = output_directory.parent.parent
 
-    if imagesTs_dir is not None:
-        test_identifiers = get_identifiers_from_splitted_files(imagesTs_dir)
-    else:
-        test_identifiers = []
+    if shell_path.exists():
+        shell_path.unlink()
 
-    json_dict = {}
-    json_dict['name'] = dataset_name
-    json_dict['description'] = dataset_description
-    json_dict['tensorImageSize'] = "4D"
-    json_dict['reference'] = dataset_reference
-    json_dict['licence'] = license
-    json_dict['release'] = dataset_release
-    json_dict['modality'] = {str(i): modalities[i] for i in range(len(modalities))}
-    json_dict['labels'] = {str(i): labels[i] for i in labels.keys()}
+    # Define the environment variables and the script commands
+    script_content = f"""#!/bin/bash
+set -e
 
-    json_dict['numTraining'] = len(train_identifiers)
-    json_dict['numTest'] = len(test_identifiers)
-    json_dict['training'] = [
-        {'image': "./imagesTr/%s.nii.gz" % i, "label": "./labelsTr/%s.nii.gz" % i} for i
-        in
-        train_identifiers]
-    json_dict['test'] = ["./imagesTs/%s.nii.gz" % i for i in test_identifiers]
+export nnUNet_raw="{base_dir}/nnUNet_raw"
+export nnUNet_preprocessed="{base_dir}/nnUNet_preprocessed"
+export nnUNet_results="{base_dir}/nnUNet_results"
 
-    if not output_file.endswith("dataset.json"):
-        print("WARNING: output file name is not dataset.json! This may be intentional or not. You decide. "
-              "Proceeding anyways...")
-    save_json(json_dict, os.path.join(output_file), sort_keys=sort_keys)
+nnUNetv2_plan_and_preprocess -d {dataset_id} --verify_dataset_integrity -c 3d_fullres
+
+for (( i=0; i<5; i++ ))
+do
+    nnUNetv2_train {dataset_id} 3d_fullres $i
+done
+"""
+
+    # Write the script content to the file
+    with shell_path.open("w", newline="\n") as f:
+        f.write(script_content)
+
+# Code take from: https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/dataset_conversion/generate_dataset_json.py
+
+def generate_dataset_json(output_folder: str,
+                          channel_names: Dict[str, str],
+                          labels: Dict[str, int],
+                          num_training_cases: int,
+                          file_ending: str,
+                          regions_class_order: Tuple[int, ...] = None,
+                          dataset_name: str = None, 
+                          reference: str = None, 
+                          release: str = None, 
+                          usage_license: str = 'hands off!',
+                          description: str = None,
+                          overwrite_image_reader_writer: str = None, 
+                          **kwargs):
+    """
+    Generates a dataset.json file in the output folder
+
+    channel_names:
+        Channel names must map the index to the name of the channel, example:
+        {
+            0: 'T1',
+            1: 'CT'
+        }
+        Note that the channel names may influence the normalization scheme!! Learn more in the documentation.
+
+    labels:
+        This will tell nnU-Net what labels to expect. Important: This will also determine whether you use region-based training or not.
+        Example regular labels:
+        {
+            'background': 0,
+            'left atrium': 1,
+            'some other label': 2
+        }
+        Example region-based training:
+        {
+            'background': 0,
+            'whole tumor': (1, 2, 3),
+            'tumor core': (2, 3),
+            'enhancing tumor': 3
+        }
+
+        Remember that nnU-Net expects consecutive values for labels! nnU-Net also expects 0 to be background!
+
+    num_training_cases: is used to double check all cases are there!
+
+    file_ending: needed for finding the files correctly. IMPORTANT! File endings must match between images and
+    segmentations!
+
+    dataset_name, reference, release, license, description: self-explanatory and not used by nnU-Net. Just for
+    completeness and as a reminder that these would be great!
+
+    overwrite_image_reader_writer: If you need a special IO class for your dataset you can derive it from
+    BaseReaderWriter, place it into nnunet.imageio and reference it here by name
+
+    kwargs: whatever you put here will be placed in the dataset.json as well
+
+    """
+
+    has_regions: bool = any([isinstance(i, (tuple, list)) and len(i) > 1 for i in labels.values()])
+    if has_regions:
+        assert regions_class_order is not None, "You have defined regions but regions_class_order is not set. " \
+                                                "You need that."
+
+    # Construct the dataset JSON structure  
+    dataset_json = {  
+        "channel_names": channel_names,  
+        "labels": labels,  
+        "numTraining": num_training_cases,  
+        "file_ending": file_ending,  
+        "name": dataset_name,  
+        "reference": reference,  
+        "release": release,  
+        "licence": usage_license,  
+        "description": description,  
+        "overwrite_image_reader_writer": overwrite_image_reader_writer,  
+        "regions_class_order": regions_class_order,  
+    }   
+
+    dataset_json = {k: v for k, v in dataset_json.items() if v is not None}  
+
+    dataset_json.update(kwargs) 
+
+    save_json(dataset_json, pathlib.Path(output_folder) / 'dataset.json', sort_keys=False)

@@ -13,7 +13,7 @@ import SimpleITK as sitk
 
 from imgtools.ops import StructureSetToSegmentation, ImageAutoInput, ImageAutoOutput, Resample
 from imgtools.pipeline import Pipeline
-from imgtools.utils.nnunet import generate_dataset_json, markdown_report_images
+from imgtools.utils.nnunet import generate_dataset_json, create_train_script, markdown_report_images
 from imgtools.utils.args import parser
 from imgtools.logging import logger
 
@@ -148,7 +148,6 @@ class AutoPipeline(Pipeline):
         if not nnunet and continue_processing and not os.path.exists(pathlib.Path(output_directory, ".temp").as_posix()):
             raise FileNotFoundError(f"Cannot continue processing. .temp directory does not exist in {output_directory}. Run without --continue_processing to start from scratch.")
 
-        study_name = os.path.split(self.input_directory)[1]
         if nnunet_inference:
             roi_yaml_path = ""
             custom_train_test_split = False
@@ -156,34 +155,49 @@ class AutoPipeline(Pipeline):
             if modalities != "CT" and modalities != "MR":
                 raise ValueError("nnUNet inference can only be run on image files. Please set modalities to 'CT' or 'MR'")
         if nnunet:
-            self.base_output_directory = self.output_directory
-            if not os.path.exists(pathlib.Path(self.output_directory, "nnUNet_preprocessed").as_posix()):
-                os.makedirs(pathlib.Path(self.output_directory, "nnUNet_preprocessed").as_posix())
-            if not os.path.exists(pathlib.Path(self.output_directory, "nnUNet_trained_models").as_posix()):
-                os.makedirs(pathlib.Path(self.output_directory, "nnUNet_trained_models").as_posix())
-            self.output_directory = pathlib.Path(self.output_directory, "nnUNet_raw_data_base",
-                                                 "nnUNet_raw_data").as_posix()
-            if not os.path.exists(self.output_directory):
-                os.makedirs(self.output_directory)
+        
+            pathlib.Path(self.output_directory, "nnUNet_results").mkdir(parents=True, exist_ok=True)
+            pathlib.Path(self.output_directory, "nnUNet_preprocessed").mkdir(parents=True, exist_ok=True)
+            raw_path = pathlib.Path(self.output_directory, "nnUNet_raw")
+            raw_path.mkdir(parents=True, exist_ok=True)
+            self.output_directory = raw_path.as_posix()
+
             all_nnunet_folders = glob.glob(pathlib.Path(self.output_directory, "*", " ").as_posix())
-            numbers = [int(os.path.split(os.path.split(folder)[0])[1][4:7]) for folder in all_nnunet_folders if os.path.split(os.path.split(folder)[0])[1].startswith("Task")]
-            if (len(numbers) == 0 and continue_processing) or not continue_processing or not os.path.exists(pathlib.Path(self.output_directory, f"Task{max(numbers)}_{study_name}", ".temp").as_posix()):
-                available_numbers = list(range(500, 1000))
-                for folder in all_nnunet_folders:
-                    folder_name = os.path.split(os.path.split(folder)[0])[1]
-                    if folder_name.startswith("Task") and folder_name[4:7].isnumeric() and int(folder_name[4:7]) in available_numbers:
-                        available_numbers.remove(int(folder_name[4:7]))
-                if len(available_numbers) == 0:
-                    raise Error("There are not enough task ID's for the nnUNet output. Please make sure that there is at least one task ID available between 500 and 999, inclusive")
-                task_folder_name = f"Task{available_numbers[0]}_{study_name}"
-                self.output_directory = pathlib.Path(self.output_directory, task_folder_name).as_posix()
-                self.task_id = available_numbers[0]
+
+            # Extract used dataset IDs from folder names that match the "Dataset###_" format
+            used_ids = {
+                int(pathlib.Path(folder).parent.parent.name[7:10]) 
+                for folder in all_nnunet_folders
+                if pathlib.Path(folder).parent.parent.name.startswith("Dataset")
+            }
+
+            study_name = pathlib.Path(self.input_directory).name
+            new_dataset_required = (
+                not used_ids  # No existing datasets
+                or not continue_processing  # Processing shouldn't continue with existing datasets
+                or not pathlib.Path(self.output_directory, f"Dataset{max(used_ids):03}_{study_name}", ".temp").exists()  # Temp folder missing
+            )
+
+            if new_dataset_required:
+                all_ids = set(range(1, 1000))
+                available_ids = sorted(all_ids - used_ids)
+                if not available_ids:
+                    raise ValueError(
+                        "There are not enough dataset IDs for the nnUNet output. "
+                        "Please ensure at least one dataset ID is available between 001 and 999, inclusive."
+                    )
+                dataset_id = available_ids[0]  # Assign the first available dataset ID
             else:
-                self.task_id = max(numbers)
-                task_folder_name = f"Task{self.task_id}_{study_name}"
-                self.output_directory = pathlib.Path(self.output_directory, task_folder_name).as_posix()
-            if not os.path.exists(pathlib.Path(self.output_directory, ".temp").as_posix()):
-                os.makedirs(pathlib.Path(self.output_directory, ".temp").as_posix())
+                dataset_id = max(used_ids)  # Reuse the highest existing dataset ID
+
+            self.dataset_id = dataset_id 
+
+            # Create the dataset folder name and update the output directory path
+            dataset_folder_name = f"Dataset{self.dataset_id:03}_{study_name}"
+            self.output_directory = pathlib.Path(self.output_directory, dataset_folder_name).as_posix()
+
+            temp_folder_path = pathlib.Path(self.output_directory, ".temp")
+            temp_folder_path.mkdir(parents=True, exist_ok=True)
         
         if not dry_run:
             # Make a directory
@@ -304,7 +318,7 @@ class AutoPipeline(Pipeline):
                 raise FileNotFoundError(f"No file named {dataset_json_path} found. Image modality definitions are required for nnUNet inference")
             else:
                 with open(dataset_json_path, "r") as f:
-                    self.nnunet_info["modalities"] = {v: k.zfill(4) for k, v in json.load(f)["modality"].items()}
+                    self.nnunet_info["modalities"] = {v: k.zfill(4) for k, v in json.load(f)["channel_names"].items()}
 
         # Input operations
         self.input = ImageAutoInput(input_directory, modalities, n_jobs, visualize, update)
@@ -361,7 +375,6 @@ class AutoPipeline(Pipeline):
             if os.path.exists(pathlib.Path(self.output_directory,".temp",f'temp_{subject_id}.pkl').as_posix()):
                 print(f"{subject_id} already processed")
                 return
-
             print("Processing:", subject_id)
 
             read_results = self.input(subject_id)
@@ -413,6 +426,11 @@ class AutoPipeline(Pipeline):
                     if hasattr(read_results[i], "metadata") and read_results[i].metadata is not None:
                         metadata.update(read_results[i].metadata)
 
+                    if self.is_nnunet or self.is_nnunet_inference: 
+                        nnunet_subject_name = f"{pathlib.Path(self.input_directory).name}_{subject_id.split('_')[0]:>03}"
+
+                    subject_name = "_".join(subject_id.split("_")[1::]) # Extracts {SUBJECT_NAME}
+
                     # modality is MR and the user has selected to have nnunet output
                     if self.is_nnunet:
                         if modality == "MR":  # MR images can have various modalities like FLAIR, T1, etc.
@@ -429,15 +447,15 @@ class AutoPipeline(Pipeline):
                                 self.total_modality_counter[modality] = 1
                             else:
                                 self.total_modality_counter[modality] += 1
-                        if "_".join(subject_id.split("_")[1::]) in self.train:
-                            self.output(subject_id, image, output_stream, nnunet_info=self.nnunet_info)
+                        if subject_name in self.train:
+                            self.output(nnunet_subject_name, image, output_stream, nnunet_info=self.nnunet_info)
                         else:
-                            self.output(subject_id, image, output_stream, nnunet_info=self.nnunet_info, train_or_test="Ts")
+                            self.output(nnunet_subject_name, image, output_stream, nnunet_info=self.nnunet_info, train_or_test="Ts")
                     elif self.is_nnunet_inference:
                         self.nnunet_info["current_modality"] = modality if modality == "CT" else metadata["AcquisitionContrast"]
                         if self.nnunet_info["current_modality"] not in self.nnunet_info["modalities"].keys():
                             raise ValueError(f"The modality {self.nnunet_info['current_modality']} is not in the list of modalities that are present in dataset.json.")
-                        self.output(subject_id, image, output_stream, nnunet_info=self.nnunet_info)
+                        self.output(nnunet_subject_name, image, output_stream, nnunet_info=self.nnunet_info)
                     else:
                         self.output(subject_id, image, output_stream)
 
@@ -518,7 +536,7 @@ class AutoPipeline(Pipeline):
                                 all_files = glob.glob(pathlib.Path(image_train_path, "*.nii.gz").as_posix())
                                 # print(all_files)
                                 for file in all_files:
-                                    if subject_id in os.path.split(file)[1]:
+                                    if nnunet_subject_name in os.path.split(file)[1]:
                                         os.remove(file)
                             warnings.warn(f"Patient {subject_id} is missing a complete image-label pair")
                             self.patients_with_missing_labels.add("".join(subject_id.split("_")[1:]))
@@ -539,10 +557,10 @@ class AutoPipeline(Pipeline):
                         sparse_mask = np.transpose(mask.generate_sparse_mask().mask_array)
                         sparse_mask = sitk.GetImageFromArray(sparse_mask)  # convert the nparray to sitk image
                         sparse_mask.CopyInformation(image)
-                        if "_".join(subject_id.split("_")[1::]) in self.train:
-                            self.output(subject_id, sparse_mask, output_stream, nnunet_info=self.nnunet_info, label_or_image="labels")  # rtstruct is label for nnunet
+                        if subject_name in self.train:
+                            self.output(nnunet_subject_name, sparse_mask, output_stream, nnunet_info=self.nnunet_info, label_or_image="labels")  # rtstruct is label for nnunet
                         else:
-                            self.output(subject_id, sparse_mask, output_stream, nnunet_info=self.nnunet_info, label_or_image="labels", train_or_test="Ts")
+                            self.output(nnunet_subject_name, sparse_mask, output_stream, nnunet_info=self.nnunet_info, label_or_image="labels", train_or_test="Ts")
                     else:
                         # if there is only one ROI, sitk.GetArrayFromImage() will return a 3d array instead of a 4d array with one slice
                         if len(mask_arr.shape) == 3:
@@ -578,7 +596,7 @@ class AutoPipeline(Pipeline):
             metadata["Modalities"] = str(list(subject_modalities))
             metadata["numRTSTRUCTs"] = num_rtstructs
             if self.is_nnunet:
-                metadata["Train or Test"] = "train" if "_".join(subject_id.split("_")[1::]) in self.train else "test"
+                metadata["Train or Test"] = "train" if subject_name in self.train else "test"
             with open(pathlib.Path(self.output_directory,".temp",f'{subject_id}.pkl').as_posix(),'wb') as f:  # the continue flag depends on this being the last line in this method
                 pickle.dump(metadata,f)
             return 
@@ -608,33 +626,36 @@ class AutoPipeline(Pipeline):
 
         shutil.rmtree(pathlib.Path(self.output_directory, ".temp").as_posix())
 
-        # Save dataset json
-        if self.is_nnunet:  # dataset.json for nnunet and .sh file to run to process it
-            imagests_path = pathlib.Path(self.output_directory, "imagesTs").as_posix()
-            images_test_location = imagests_path if os.path.exists(imagests_path) else None
-            generate_dataset_json(pathlib.Path(self.output_directory, "dataset.json").as_posix(),
-                                  pathlib.Path(self.output_directory, "imagesTr").as_posix(),
-                                  images_test_location,
-                                  tuple(self.nnunet_info["modalities"].keys()),
-                                  {v: k for k, v in self.existing_roi_indices.items()},
-                                  os.path.split(self.input_directory)[1])
-            _, child = os.path.split(self.output_directory)
-            shell_path = pathlib.Path(self.output_directory, child.split("_")[1]+".sh").as_posix()
-            if os.path.exists(shell_path):
-                os.remove(shell_path)
-            with open(shell_path, "w", newline="\n") as f:
-                output = "#!/bin/bash\n"
-                output += "set -e"
-                output += f'export nnUNet_raw_data_base="{self.base_output_directory}/nnUNet_raw_data_base"\n'
-                output += f'export nnUNet_preprocessed="{self.base_output_directory}/nnUNet_preprocessed"\n'
-                output += f'export RESULTS_FOLDER="{self.base_output_directory}/nnUNet_trained_models"\n\n'
-                output += f'nnUNet_plan_and_preprocess -t {self.task_id} --verify_dataset_integrity\n\n'
-                output += 'for (( i=0; i<5; i++ ))\n'
-                output += 'do\n'
-                output += f'    nnUNet_train 3d_fullres nnUNetTrainerV2 {os.path.split(self.output_directory)[1]} $i --npz\n'
-                output += 'done'
-                f.write(output)
-            markdown_report_images(self.output_directory, self.total_modality_counter)  # images saved to the output directory
+        if self.is_nnunet: 
+            train_dir = ((pathlib.Path(self.output_directory)) / 'imagesTr')
+            num_training_cases = sum( # This can be different from len(self.train) if regex of ROI not matched
+                1 for file in train_dir.iterdir() 
+                if file.suffixes == ['.nii', '.gz']
+                )
+            test_dir = ((pathlib.Path(self.output_directory)) / 'imagesTs')
+            num_test_cases = sum( # This can be different from len(self.test) if regex of ROI not matched
+                1 for file in test_dir.iterdir() 
+                if file.suffixes == ['.nii', '.gz']
+                ) if test_dir.exists() else 0 # no testing data
+            
+            channel_names_mapping = { # Earlier generated as {"CT": ""0000"} now needed as {"0": "CT"}
+                self.nnunet_info["modalities"][k].lstrip('0') or '0': k  
+                for k in self.nnunet_info["modalities"].keys()
+            }
+            generate_dataset_json(
+                output_folder=pathlib.Path(self.output_directory), 
+                channel_names=channel_names_mapping,
+                labels=self.existing_roi_indices,     
+                file_ending='.nii.gz',
+                num_training_cases=num_training_cases
+            )
+            create_train_script(self.output_directory, self.dataset_id)
+            markdown_report_images(
+                self.output_directory, 
+                self.total_modality_counter, 
+                num_training_cases, 
+                num_test_cases
+            )
         
         # Save summary info (factor into different file)
         markdown_path = pathlib.Path(self.output_directory, "report.md").as_posix()
