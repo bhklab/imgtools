@@ -13,31 +13,44 @@ from fasteners import InterProcessLock
 
 from imgtools.exceptions import DirectoryNotFoundError
 from imgtools.logging import logger
-from imgtools.pattern_parser import PatternResolver
+from imgtools.pattern_parser import PatternResolver, MissingPlaceholderValueError
 
 if TYPE_CHECKING:
     from types import TracebackType
 
 
 class ExistingFileMode(Enum):
-    """Enum to specify handling behavior for existing files."""
+    """
+    Enum to specify handling behavior for existing files.
 
-    # log as debug, and continue with the operation
+    Attributes
+    ----------
+    OVERWRITE : auto()
+        Overwrite the existing file. Logs as debug and continues with the operation.
+    FAIL : auto()
+        Fail the operation if the file exists. Logs as error and raises a FileExistsError.
+    RAISE_WARNING : auto()
+        Raise a warning if the file exists. Logs as warning and continues with the operation.
+    SKIP : auto()
+        Skip the operation if the file exists.
+        Meant to be used for previewing the path before any expensive computation.
+        `preview_path()` will return None if the file exists.
+        `resolve_path()` will still return the path even if the file exists.
+        The writer's `save` method should handle the file existence if set to SKIP.
+    """
+
     OVERWRITE = auto()
-
-    # log as debug, and return None which should be handled appropriately by the caller
     SKIP = auto()
-
-    # log as error, and raise a FileExistsError
     FAIL = auto()
-
-    # log as warning, and continue with the operation
     RAISE_WARNING = auto()
 
 
 @dataclass
 class AbstractBaseWriter(ABC):
-    """Abstract base class for managing file writing with customizable paths and filenames."""
+    """Abstract base class for managing file writing with customizable paths and filenames.
+
+    This class provides a template for writing files with a flexible directory structure.
+    """
 
     # Any subclass has to be initialized with a root directory and a filename format
     # Gets converted to a Path object in __post_init__
@@ -87,7 +100,7 @@ class AbstractBaseWriter(ABC):
     pattern_resolver: PatternResolver = field(init=False)
 
     index_filename: Optional[str] = field(
-        default="index.csv",
+        default=None,
         metadata={
             "help": (
                 "Name of the index file to track saved files. If an absolute path "
@@ -95,6 +108,11 @@ class AbstractBaseWriter(ABC):
                 "in the root directory."
             )
         },
+    )
+
+    overwrite_index: bool = field(
+        default=True,
+        metadata={"help": "If True, overwrites the index file if it already exists."},
     )
 
     # Cache for directories to avoid redundant checks
@@ -112,8 +130,8 @@ class AbstractBaseWriter(ABC):
         elif not self.index_file.parent.exists():
             msg = f"Index file directory {self.index_file.parent} does not exist."
             raise DirectoryNotFoundError(msg)
-        if self.index_file.exists():
-            logger.warning(
+        if self.index_file.exists() and self.overwrite_index:
+            logger.info(
                 f"Index file {self.index_file} already exists. Copying to .backup."
             )
             # copy to .backup just in case
@@ -127,9 +145,17 @@ class AbstractBaseWriter(ABC):
     @property
     def index_file(self) -> Path:
         """Get the path to the index CSV file."""
-        if (index_path := Path(self.index_filename)).is_absolute():
+        if (index_path := Path(self._index_filename)).is_absolute():
             return index_path
-        return self.root_directory / self.index_filename
+        return self.root_directory / self._index_filename
+
+    @property
+    def _index_filename(self) -> Path:
+        """Get the path to the index CSV file."""
+        if self.index_filename is None:
+            root_dir_basename = self.root_directory.name
+            return Path(f"{root_dir_basename}_index.csv")
+        return Path(self.index_filename)
 
     def _get_index_lock(self) -> Path:
         """Get the path to the lock file for the index CSV."""
@@ -156,18 +182,50 @@ class AbstractBaseWriter(ABC):
         """Helper for resolving paths with the given context."""
         save_context = {**self._generate_datetime_strings(), **self.context, **kwargs}
         self.set_context(**save_context)
-        filename = self.pattern_resolver.resolve(save_context)
+        try:
+            filename = self.pattern_resolver.resolve(save_context)
+        except MissingPlaceholderValueError as e:
+            # Replace the class name in the error message dynamically
+            raise MissingPlaceholderValueError(
+                e.missing_keys,
+                class_name=self.__class__.__name__,
+                key=e.key,
+            ) from e
         if self.sanitize_filenames:
             filename = self._sanitize_filename(filename)
         out_path = self.root_directory / filename
+        logger.debug(
+            f"Resolved path: {out_path} and {out_path.exists()=}",
+            handling=self.existing_file_mode,
+        )
         return out_path
 
     def resolve_path(self, **kwargs: Any) -> Path:  # noqa: ANN401
         """Generate a file path based on the filename format, subject ID, and additional parameters."""
-        return self._resolve_and_validate_path(**kwargs)
+        out_path = self._generate_path(**kwargs)
+        if not out_path.exists() and self.create_dirs:
+            self._ensure_directory_exists(out_path.parent)
+            return out_path
+        match self.existing_file_mode:
+            case ExistingFileMode.SKIP:
+                logger.debug(f"File {out_path} exists. Skipping.")
+                return out_path
+            case ExistingFileMode.FAIL:
+                msg = f"File {out_path} already exists."
+                raise FileExistsError(msg)
+            case ExistingFileMode.RAISE_WARNING:
+                logger.warning(f"File {out_path} exists. Proceeding anyway.")
+            case ExistingFileMode.OVERWRITE:
+                logger.debug(f"File {out_path} exists. Deleting and overwriting.")
+                out_path.unlink()
+
+        return out_path
 
     def preview_path(self, **kwargs: Any) -> Optional[Path]:  # noqa: ANN401
         """Pre-checking file existence and setting up the writer context.
+
+        Only difference between this and resolve_path is that this method returns
+        None if the file exists and the mode is SKIP.
 
         Main idea here is to allow users to save computation if they choose to skip existing files.
         i.e if file exists and mode is SKIP, we return None, so the user can skip the computation.
@@ -202,57 +260,24 @@ class AbstractBaseWriter(ABC):
         FileExistsError
             If the file exists and the mode is FAIL.
         """
-        logger.debug("previewing_path", **kwargs)
-        try:
-            logger.debug("try")
-            resolved_path = self._resolve_and_validate_path(**kwargs)
-        except FileExistsError as e:
-            logger.exception(
-                f"Error in {self.__class__.__name__} during pre-validation."
-            )
-            raise e
-        return resolved_path
-
-    def _resolve_and_validate_path(self, **kwargs: Any) -> Optional[Path]:  # noqa: ANN401
-        """Pre-resolve the output path and validate based on the existing file mode.
-
-        Also stores the context for later use.
-        Useful for pre-checking if saving is valid before heavy computations.
-
-        Parameters
-        ----------
-        **kwargs : Any
-            Additional parameters for filename formatting.
-
-        Returns
-        -------
-        Optional[Path]
-            Resolved path for the file or None if skipped.
-
-        Raises
-        ------
-        FileExistsError
-            If the file exists and the mode is FAIL.
-        """
         out_path = self._generate_path(**kwargs)
-        logger.debug(
-            f"Resolved path: {out_path} and {out_path.exists()=}",
-            handling=self.existing_file_mode,
-        )
 
-        if out_path.exists():
-            match self.existing_file_mode:
-                case ExistingFileMode.SKIP:
-                    logger.debug(f"File {out_path} exists. Skipping.")
-                    return None
-                case ExistingFileMode.FAIL:
-                    msg = f"File {out_path} already exists."
-                    raise FileExistsError(msg)
-                case ExistingFileMode.RAISE_WARNING:
-                    logger.warning(f"File {out_path} exists. Proceeding anyway.")
-                case ExistingFileMode.OVERWRITE:
-                    logger.debug(f"File {out_path} exists. Deleting and overwriting.")
-                    out_path.unlink()
+        if not out_path.exists():
+            return out_path
+
+        match self.existing_file_mode:
+            case ExistingFileMode.SKIP:
+                logger.debug(f"File {out_path} exists. Skipping.")
+                return None
+            case ExistingFileMode.FAIL:
+                msg = f"File {out_path} already exists."
+                raise FileExistsError(msg)
+            case ExistingFileMode.RAISE_WARNING:
+                logger.warning(f"File {out_path} exists. Proceeding anyway.")
+            case ExistingFileMode.OVERWRITE:
+                logger.debug(f"File {out_path} exists. Deleting and overwriting.")
+                out_path.unlink()
+
         return out_path
 
     # Context Manager Implementation
@@ -354,6 +379,11 @@ class AbstractBaseWriter(ABC):
             "time": now.strftime("%H%M%S"),
             "date_time": now.strftime("%Y-%m-%d_%H%M%S"),
         }
+
+    def __del__(self) -> None:
+        """Ensure the lock file is removed when the writer is deleted."""
+        if (lock := self._get_index_lock()).exists():
+            lock.unlink()
 
     def dump_to_csv(
         self,
@@ -509,7 +539,13 @@ if __name__ == "__main__":
         "create_dirs": True,
         "existing_file_mode": ExistingFileMode.OVERWRITE,
     }
-
+    try:
+        writer = ExampleWriter(**writer_config)
+    except:
+        logger.exception("Error creating writer.")
+    else:
+        print(writer.index_file)
+    exit(0)
     print("Running with multiprocessing...")
     start_time = time.time()
     run_multiprocessing(writer_config, num_processes, files_per_process)

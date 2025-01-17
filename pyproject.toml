@@ -55,6 +55,7 @@ classifiers = [
 [project.optional-dependencies]
 torch = ["torch", "torchio"]
 debug = ["pyvis"]
+hdf5 = ["h5py>=3.0.0"]
 
 # Entry points for CLI commands
 [project.scripts]

@@ -64,6 +64,8 @@ inputs = ["coverage-report/coverage.xml", "config/coverage.toml"]
 depends-on = ["test"]
 description = "Run pytest and generate coverage report"
 
+[feature.test.tasks.clean_tests]
+cmd = "rm -rf .pytest_cache data tests/temp temp_outputs"
 ############################################## DOCS ###############################################
 [feature.docs.dependencies]
 mkdocs = "*"
