@@ -98,7 +98,7 @@ def nifti_writer(temp_nifti_dir: Path, request: pytest.FixtureRequest) -> NIFTIW
     mode_dir = temp_nifti_dir / f"EXISTINGFILEMODE-{mode.name}"
     return NIFTIWriter(
         root_directory=mode_dir,
-        filename_format="{PatientID}/{identifier}.nii.gz",
+        filename_format="{PatientID}/{identifier}_VERSION-{version}.nii.gz",
         existing_file_mode=mode,
         create_dirs=True,
         sanitize_filenames=True,
@@ -112,14 +112,13 @@ def test_parameterized_image_save(
     nifti_writer: NIFTIWriter, parameterized_image: Image
 ):
     """Test saving parameterized images with NIFTIWriter."""
-    # nifti_writer.index_filename = (
-    #     f"{parameterized_image.metadata['PatientID']}_index.csv"
-    # )
 
-    saved_path = nifti_writer.save(
-        parameterized_image,
-        **parameterized_image.metadata,
-    )
+    for version_suffix in range(10):
+        saved_path = nifti_writer.save(
+            parameterized_image,
+            **parameterized_image.metadata,
+            version=version_suffix,
+        )
     assert saved_path.exists()
     assert saved_path.suffix == ".gz"
 
@@ -162,3 +161,32 @@ def test_parameterized_image_save(
                 **parameterized_image.metadata,
             )
             assert saved_path.exists()
+
+
+# some simpler tests
+
+
+def test_invalid_compression():
+    with pytest.raises(NiftiWriterValidationError):
+        NIFTIWriter(
+            root_directory=Path("."),
+            filename_format="{filename}.nii.gz",
+            existing_file_mode=ExistingFileMode.SKIP,
+            create_dirs=True,
+            sanitize_filenames=True,
+            compression_level=10,
+            overwrite_index=False,
+        )
+
+
+def test_invalid_extension():
+    with pytest.raises(NiftiWriterValidationError):
+        NIFTIWriter(
+            root_directory=Path("."),
+            filename_format="{filename}.nii.gz.invalid",
+            existing_file_mode=ExistingFileMode.SKIP,
+            create_dirs=True,
+            sanitize_filenames=True,
+            compression_level=9,
+            overwrite_index=False,
+        )
