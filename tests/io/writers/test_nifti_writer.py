@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import pytest
 import SimpleITK as sitk
 from SimpleITK import Image
@@ -15,6 +16,14 @@ from imgtools.io.writers import (
 
 
 class TestImage(Image):
+    """A convenience class to store metadata information related to the image.
+
+    Attributes
+    ----------
+    metadata : dict
+        A dictionary to store metadata information related to the image.
+    """
+
     metadata: dict
 
     pass
@@ -190,3 +199,60 @@ def test_invalid_extension():
             compression_level=9,
             overwrite_index=False,
         )
+
+
+def test_save_numpy_array_image(temp_nifti_dir: Path):
+    """Test saving a numpy array image with NIFTIWriter."""
+    nifti_writer = NIFTIWriter(
+        root_directory=temp_nifti_dir,
+        filename_format="{PatientID}/{identifier}.nii.gz",
+        existing_file_mode=ExistingFileMode.OVERWRITE,
+        create_dirs=True,
+        sanitize_filenames=True,
+        compression_level=9,
+        overwrite_index=False,
+    )
+
+    # Create a numpy array image
+    np_image = np.random.rand(64, 64, 64).astype(np.float32)
+
+    metadata = {
+        "PatientID": "numpy_patient",
+        "identifier": "numpy_image",
+        "StudyInstanceUID": str(uuid.uuid4()),
+    }
+
+    saved_path = nifti_writer.save(np_image, **metadata)
+    assert saved_path.exists()
+    assert saved_path.suffix == ".gz"
+
+
+def test_save_bad_image(temp_nifti_dir: Path):
+    """Test saving a bad image with NIFTIWriter and expect NiftiWriterIOError."""
+    nifti_writer = NIFTIWriter(
+        root_directory=temp_nifti_dir,
+        filename_format="{PatientID}/{identifier}.nii.gz",
+        existing_file_mode=ExistingFileMode.OVERWRITE,
+        create_dirs=True,
+        sanitize_filenames=True,
+        compression_level=9,
+        overwrite_index=False,
+    )
+
+    # Create a bad image (e.g., an empty image)
+    bad_image = sitk.Image()
+
+    # create a bad image thats not sitk
+    bad_not_sitk_image = pd.DataFrame()
+
+    metadata = {
+        "PatientID": "bad_patient",
+        "identifier": "bad_image",
+        "StudyInstanceUID": str(uuid.uuid4()),
+    }
+
+    with pytest.raises(NiftiWriterIOError):
+        nifti_writer.save(bad_image, **metadata)
+
+    with pytest.raises(NiftiWriterValidationError):
+        nifti_writer.save(bad_not_sitk_image, **metadata)
