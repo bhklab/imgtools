@@ -87,7 +87,7 @@ class AbstractBaseWriter(ABC):
     )
 
     # Internal context storage for pre-checking
-    context: Dict[str, Any] = field(default_factory=dict, init=False)
+    context: Dict[str, Any] = field(default_factory=dict)
 
     # PatternResolver to handle filename formatting
     # class-level pattern resolver instance shared across all instances
@@ -179,6 +179,10 @@ class AbstractBaseWriter(ABC):
     def set_context(self, **kwargs: Any) -> None:  # noqa: ANN401
         """Set the context for the writer."""
         self.context.update(kwargs)
+
+    def clear_context(self) -> None:
+        """Clear the context for the writer."""
+        self.context.clear()
 
     def _generate_path(self, **kwargs: Any) -> Path:  # noqa: ANN401
         """Helper for resolving paths with the given context."""
@@ -555,11 +559,13 @@ if __name__ == "__main__":
     }
 
     try:
-        writer = ExampleWriter(**writer_config)
+        writer = ExampleWriter(**writer_config, context={"experiment_type": "test"})
     except:
         logger.exception("Error creating writer.")
     else:
         print(writer.index_file)
+        # print(writer.context)
+        # exit(0)
 
     print("Running with multiprocessing...")
     start_time = time.time()
