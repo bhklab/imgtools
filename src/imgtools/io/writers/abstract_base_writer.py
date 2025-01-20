@@ -105,7 +105,7 @@ class AbstractBaseWriter(ABC):
             "help": (
                 "Name of the index file to track saved files. If an absolute path "
                 "is provided, it will be used as is. Otherwise, it will be saved "
-                "in the root directory."
+                f"in the root directory with the format of {root_directory.name}_index.csv."
             )
         },
     )
@@ -113,6 +113,16 @@ class AbstractBaseWriter(ABC):
     overwrite_index: bool = field(
         default=True,
         metadata={"help": "If True, overwrites the index file if it already exists."},
+    )
+
+    absolute_paths_in_index: bool = field(
+        default=False,
+        metadata={
+            "help": (
+                "If True, saves absolute paths in the index file. "
+                "If False, saves paths relative to the root directory."
+            )
+        },
     )
 
     # Cache for directories to avoid redundant checks
@@ -385,12 +395,12 @@ class AbstractBaseWriter(ABC):
         if (lock := self._get_index_lock()).exists():
             lock.unlink()
 
-    def dump_to_csv(
+    def add_to_index(
         self,
         path: Path,
-        fieldnames: Optional[list[str]] = None,
         include_all_context: bool = True,
-        **context: Any,  # noqa
+        filepath_column: str = "path",
+        **additional_context: Any,  # noqa
     ) -> None:
         """Dump the given path and context information to a shared CSV file.
 
@@ -401,14 +411,15 @@ class AbstractBaseWriter(ABC):
         ----------
         path : Path
             The file path being saved.
-        fieldnames : Optional[list[str]]
-            Custom field names for the CSV. Defaults to ["path", *context.keys()].
         include_all_context : bool
-            If True, includes all context keys in the CSV.
+            If True, includes all context keys in the CSV (includes datetime strings).
             If False, only includes keys used in the filename.
             Defaults to True.
-        **context : Any
-            Additional context information to include in the CSV.
+        filepath_column : str
+            The name of the column to store the file path.
+            Defaults to "path".
+        **additional_context : Any
+            Additional context information as keyword-arguments to include in the CSV for this row.
 
         Notes
         -----
@@ -418,6 +429,8 @@ class AbstractBaseWriter(ABC):
         lock_file = self._get_index_lock()
         self._ensure_directory_exists(self.index_file.parent)
 
+        context = {**self.context, **additional_context}
+
         # Determine which context keys to include based on the parameter
         if include_all_context:
             save_context = context
@@ -425,8 +438,13 @@ class AbstractBaseWriter(ABC):
             # only consider the keys that were used in the filename_format
             save_context = {k: context[k] for k in self.pattern_resolver.keys}
 
-        fieldnames = fieldnames or ["path", *save_context.keys()]
+        fieldnames = [filepath_column, *save_context.keys()]
 
+        resolved_path = (
+            path.resolve().absolute()
+            if self.absolute_paths_in_index
+            else path.relative_to(self.root_directory)
+        )
         try:
             with InterProcessLock(lock_file):
                 with self.index_file.open(mode="a", newline="", encoding="utf-8") as f:
@@ -437,7 +455,7 @@ class AbstractBaseWriter(ABC):
                         writer.writeheader()
 
                     # Write the data
-                    writer.writerow({"path": str(path), **save_context})
+                    writer.writerow({"path": str(resolved_path), **save_context})
         except Exception as e:
             logger.exception(f"Error writing to index file {self.index_file}.", error=e)
             raise
@@ -472,10 +490,7 @@ class ExampleWriter(AbstractBaseWriter):
         # Log the save operation
         logger.debug(f"File saved: {output_path}")
 
-        self.dump_to_csv(
-            output_path,
-            **self.context,
-        )
+        self.add_to_index(output_path)
 
         return output_path
 
@@ -490,11 +505,11 @@ if __name__ == "__main__":
     from typing import Any, Dict
 
     # Configuration for the test
-    num_processes = 4
-    files_per_process = 100
+    num_processes = 2
+    files_per_process = 6
 
     def write_files_in_process(
-        process_id: int, writer_config: Dict[str, Any], file_count: int
+        process_id: int, writer_config: Dict[str, Any], file_count: int, mode: str
     ):
         """Worker function for a process to write files using ExampleWriter."""
         writer = ExampleWriter(**writer_config)
@@ -507,7 +522,7 @@ if __name__ == "__main__":
                     "name": f"file_{process_id}_{i:04}",
                     "extra_info": f"process_{process_id}",
                 }
-                writer.save(content, **context)
+                writer.save(content, **context, experiment_type=mode)
 
     def run_multiprocessing(
         writer_config: Dict[str, Any], num_processes: int, files_per_process: int
@@ -517,7 +532,7 @@ if __name__ == "__main__":
         for process_id in range(num_processes):
             p = multiprocessing.Process(
                 target=write_files_in_process,
-                args=(process_id, writer_config, files_per_process),
+                args=(process_id, writer_config, files_per_process, "multiprocessing"),
             )
             processes.append(p)
             p.start()
@@ -530,22 +545,32 @@ if __name__ == "__main__":
     ):
         """Run file-writing tasks sequentially without multiprocessing."""
         for process_id in range(num_processes):
-            write_files_in_process(process_id, writer_config, files_per_process)
+            write_files_in_process(
+                process_id, writer_config, files_per_process, "single"
+            )
+
+    ROOT_DIR = Path("./data/demo/abstract_writer_showcase")
+    if ROOT_DIR.exists():
+        import shutil
+
+        shutil.rmtree(ROOT_DIR)
 
     # Writer configuration
     writer_config = {
-        "root_directory": Path("./data/multiprocessing_demo"),
-        "filename_format": "{name}_{extra_info}.txt",
+        "root_directory": ROOT_DIR,
+        "filename_format": "{experiment_type}/{name}_{extra_info}.txt",
         "create_dirs": True,
         "existing_file_mode": ExistingFileMode.OVERWRITE,
+        "overwrite_index": False,
     }
+
     try:
         writer = ExampleWriter(**writer_config)
     except:
         logger.exception("Error creating writer.")
     else:
         print(writer.index_file)
-    exit(0)
+
     print("Running with multiprocessing...")
     start_time = time.time()
     run_multiprocessing(writer_config, num_processes, files_per_process)

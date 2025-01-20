@@ -144,5 +144,5 @@ class NIFTIWriter(AbstractBaseWriter):
         logger.debug(f"Image saved successfully: {out_path}")
 
         if _save_to_index:
-            self.dump_to_csv(out_path, **kwargs)
+            self.add_to_index(out_path, **kwargs)
         return out_path
