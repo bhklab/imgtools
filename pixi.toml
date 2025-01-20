@@ -54,9 +54,12 @@ sqlalchemy-stubs = ">=0.4,<0.5"
 med-imagetools = { path = ".", editable = true }
 
 [feature.test.tasks.test]
-cmd = "pytest -c config/pytest.ini --rootdir ."
+cmd = "pytest -c config/pytest.ini --rootdir . --basetemp='./tests/temp'"
 inputs = ["src", "tests", "config/pytest.ini", "config/coverage.toml"]
 description = "Run pytest (make sure to run in root directory)"
+
+[feature.test.tasks.test_ci]
+cmd = "pytest -c config/pytest.ini --rootdir ."
 
 [feature.test.tasks.coverage]
 cmd = "coverage report --rcfile=config/coverage.toml"

@@ -3,7 +3,7 @@ name: CI-CD
 # only run on pushes to main or pull requests
 on:
   push:
-    branches: ["main", "jjjermiah/devel/main"]
+    branches: ["main"]
   pull_request:
     branches: ["*"]
 
@@ -32,7 +32,7 @@ jobs:
 
       - name: Run pytest
         run: |
-          pixi run -e ${{ matrix.env }} test
+          pixi run -e ${{ matrix.env }} test_ci
 
       - name: Upload coverage report artifact to be used by Codecov
         # only upload if matrix.os is ubuntu-latest and matrix.python-version is 3.12
