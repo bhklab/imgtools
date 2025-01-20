@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v1.15.0 (2025-01-17)
+
+### Features
+
+- Refactor io module, introduce new abstract base writer
+  ([#181](https://github.com/bhklab/med-imagetools/pull/181),
+  [`e04008d`](https://github.com/bhklab/med-imagetools/commit/e04008d2f2a2040f3a1092debca0c69caa180f85))
+
+Co-authored-by: coderabbitai[bot] <136622811+coderabbitai[bot]@users.noreply.github.com>
+
+
 ## v1.14.0 (2025-01-17)
 
 ### Features

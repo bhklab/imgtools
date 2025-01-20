@@ -73,11 +73,11 @@ def resolve_path(
     format_str : str
         The format string for the resolved path.
     check_existing : bool, optional
-                    If True, check if the resolved path already exists (default is True).
+        If True, check if the resolved path already exists (default is True).
     truncate : bool, optional
-                    If True, truncate long values in the resolved path (default is True).
+        If True, truncate long values in the resolved path (default is True).
     sanitize : bool, optional
-                    If True, sanitize the resolved path (default is True).
+        If True, sanitize the resolved path (default is True).
 
     Returns
     -------
@@ -88,7 +88,7 @@ def resolve_path(
     resolved_path = Path(format_str % tags, path.name)
     if check_existing and not resolved_path.exists():
         resolved_path = resolved_path.resolve()
-    else:
+    elif check_existing:
         errmsg = f"Path {resolved_path} already exists."
         logger.error(errmsg, source_path=path, resolved_path=resolved_path)
         raise FileExistsError(errmsg)

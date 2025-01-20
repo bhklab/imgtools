@@ -1,2 +1,11 @@
 # SCM syntax highlighting
 pixi.lock linguist-language=YAML linguist-generated=true
+
+# When merging, always use the "ours" strategy
+# dont really care about pixi.lock, update anyways to keep it up to date
+pixi.lock merge=ours 
+
+# Ignore changes to the changelog during diff
+CHANGELOG.md -diff
+pixi.lock -diff
+README.md -diff

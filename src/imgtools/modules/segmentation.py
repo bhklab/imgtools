@@ -28,7 +28,7 @@ Notes
   of multi-label segmentation masks.
 - The `generate_sparse_mask` method resolves overlapping contours by taking the
   maximum label value for each voxel, ensuring a consistent sparse representation.
-- Integration with DICOM SEG metadata is supported through the `from_dicom_seg`
+- Integration with DICOM SEG metadata is supported through the `from_dicom`
   class method, which creates `Segmentation` objects from DICOM SEG files.
 
 Examples
@@ -94,13 +94,16 @@ def accepts_segmentations(f: Callable) -> Callable:
 
     Examples
     --------
+
+    Define a function that processes an image and is decorated with `@accepts_segmentations`:
     >>> @accepts_segmentations
     ... def some_processing_function(
     ...     img,
     ...     *args,
     ...     **kwargs,
-    ... ):
-    ...     return img  # Perform some operation on the image
+    ... ) -> sitk.Image:
+            # Perform some operation on the image
+    ...     return img  
     >>> segmentation = Segmentation(
     ...     image,
     ...     roi_indices={
@@ -114,6 +117,8 @@ def accepts_segmentations(f: Callable) -> Callable:
     ...     Segmentation,
     ... )
     True
+    >>> print(result.roi_indices)
+    {"ROI1": 1, "ROI2": 2}
     """
 
     @wraps(f)
@@ -263,6 +268,31 @@ class Segmentation(sitk.Image):
 
         self.existing_roi_indices = existing_roi_indices
 
+    # jjjermiah: this is literally NOT "from_dicom" lmao... 
+    # TODO: rename this to something more appropriate and add a proper from_dicom method
+    @classmethod
+    def from_dicom(cls, mask: sitk.Image, meta: Any) -> Segmentation:
+        # get duplicates
+        label_counters = {i.SegmentLabel: 1 for i in meta.SegmentSequence}
+        raw_roi_names = {}  # {i.SegmentLabel: i.SegmentNumber for n, i in meta.SegmentSequence}
+        for _n, i in enumerate(meta.SegmentSequence):
+            label = i.SegmentLabel
+            num = i.SegmentNumber
+
+            if label not in raw_roi_names:
+                raw_roi_names[label] = num
+            else:
+                raw_roi_names[f"{label}_{label_counters[label]}"] = num
+                label_counters[label] += 1
+
+        frame_groups = meta.PerFrameFunctionalGroupsSequence
+        return cls(mask, raw_roi_names=raw_roi_names, frame_groups=frame_groups)
+
+    @classmethod
+    def from_dicom_seg(cls, mask: sitk.Image, meta: Any) -> Segmentation:
+        """Alias for `from_dicom`."""
+        return cls.from_dicom(mask=mask, meta=meta)
+
     def get_label(
         self,
         label: Optional[int] = None,
@@ -302,7 +332,9 @@ class Segmentation(sitk.Image):
             # Background is stored implicitly and needs to be computed
             label_arr = sitk.GetArrayViewFromImage(self)
             # Create a binary image where background is 1 and other regions are 0
-            label_img = sitk.GetImageFromArray((label_arr.sum(-1) == 0).astype(np.uint8))
+            label_img = sitk.GetImageFromArray(
+                (label_arr.sum(-1) == 0).astype(np.uint8)
+            )
         else:
             # Retrieve the label image for the given label index
             label_img = sitk.VectorIndexSelectionCast(self, label - 1)
@@ -369,7 +401,9 @@ class Segmentation(sitk.Image):
         if len(mask_arr.shape) == 4:
             for i in range(mask_arr.shape[0]):
                 slc = mask_arr[i, :, :, :]
-                slc *= list(self.roi_indices.values())[
+                slc *= list(
+                    self.roi_indices.values()
+                )[
                     i
                 ]  # everything is 0 or 1, so this is fine to convert filled voxels to label indices
                 if verbose:
@@ -416,21 +450,3 @@ class Segmentation(sitk.Image):
                         overlaps.add((i, j, k))
                     res[i, j, k] = max(arr_1[i, j, k], arr_2[i, j, k])
         return res, overlaps
-
-    @classmethod
-    def from_dicom_seg(cls, mask: sitk.Image, meta: Any) -> Segmentation:  # noqa
-        # get duplicates
-        label_counters = {i.SegmentLabel: 1 for i in meta.SegmentSequence}
-        raw_roi_names = {}  # {i.SegmentLabel: i.SegmentNumber for n, i in meta.SegmentSequence}
-        for _n, i in enumerate(meta.SegmentSequence):
-            label = i.SegmentLabel
-            num = i.SegmentNumber
-
-            if label not in raw_roi_names:
-                raw_roi_names[label] = num
-            else:
-                raw_roi_names[f"{label}_{label_counters[label]}"] = num
-                label_counters[label] += 1
-
-        frame_groups = meta.PerFrameFunctionalGroupsSequence
-        return cls(mask, raw_roi_names=raw_roi_names, frame_groups=frame_groups)

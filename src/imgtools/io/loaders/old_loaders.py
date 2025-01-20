@@ -103,21 +103,24 @@ def read_dicom_scan(
 def read_dicom_rtstruct(
     path: str,
     suppress_warnings: bool = False,
+    roi_name_pattern: str | None = None,
 ) -> StructureSet:
-    return StructureSet.from_dicom_rtstruct(path, suppress_warnings=suppress_warnings)
+    return StructureSet.from_dicom(
+        path, suppress_warnings=suppress_warnings, roi_name_pattern=roi_name_pattern
+    )
 
 
 def read_dicom_rtdose(path: str) -> Dose:
-    return Dose.from_dicom_rtdose(path)
+    return Dose.from_dicom(path=path)
 
 
 def read_dicom_pet(path: str, series: Optional[str] = None) -> PET:
-    return PET.from_dicom_pet(path, series, "SUV")
+    return PET.from_dicom(path=path, series_id=series, pet_image_type="SUV")
 
 
 def read_dicom_seg(path: str, meta: dict, series: Optional[str] = None) -> Segmentation:
     seg_img = read_dicom_series(path, series)
-    return Segmentation.from_dicom_seg(seg_img, meta)
+    return Segmentation.from_dicom(seg_img, meta)
 
 
 auto_dicom_result = Union[Scan, PET, StructureSet, Dose, Segmentation]
@@ -253,13 +256,16 @@ class ImageTreeLoader(BaseLoader):
         if self.expand_paths:
             # paths = {col: glob.glob(path)[0] for col, path in paths.items()}
             paths = {
-                col: glob.glob(path)[0] if pd.notna(path) else None for col, path in paths.items()
+                col: glob.glob(path)[0] if pd.notna(path) else None
+                for col, path in paths.items()
             }
 
         for i, (col, path) in enumerate(paths.items()):
-            files = self.tree[subject_id][study["study_" + ("_").join(col.split("_")[1:])]][
-                series["series_" + ("_").join(col.split("_")[1:])]
-            ][subseries["subseries_" + ("_").join(col.split("_")[1:])]]
+            files = self.tree[subject_id][
+                study["study_" + ("_").join(col.split("_")[1:])]
+            ][series["series_" + ("_").join(col.split("_")[1:])]][
+                subseries["subseries_" + ("_").join(col.split("_")[1:])]
+            ]
             self.readers[i](path, series["series_" + ("_").join(col.split("_")[1:])])
         outputs = {
             col: self.readers[i](
@@ -329,11 +335,14 @@ class ImageCSVLoader(BaseLoader):
         if self.expand_paths:
             # paths = {col: glob.glob(path)[0] for col, path in paths.items()}
             paths = {
-                col: glob.glob(path)[0] if pd.notna(path) else None for col, path in paths.items()
+                col: glob.glob(path)[0] if pd.notna(path) else None
+                for col, path in paths.items()
             }
 
         outputs = {
-            col: self.readers[i](path, series["series_" + ("_").join(col.split("_")[1:])])
+            col: self.readers[i](
+                path, series["series_" + ("_").join(col.split("_")[1:])]
+            )
             for i, (col, path) in enumerate(paths.items())
         }
         return self.output_tuple(**outputs)

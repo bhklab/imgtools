@@ -51,34 +51,30 @@ def find_dicoms(
     Parameters
     ----------
     directory : Path
-                    The directory in which to search for DICOM files.
+        The directory in which to search for DICOM files.
     recursive : bool
-                    Whether to include subdirectories in the search.
-
-                    - If `True`, recursively search all subdirectories.
-                    - If `False`, search only the specified directory.
+        Whether to include subdirectories in the search
     check_header : bool
-                    Whether to validate files by checking for a valid DICOM header.
-
-                    - If `True`, perform DICOM header validation (slower but more accurate).
-                    - If `False`, skip header validation and rely on extension.
+        Whether to validate files by checking for a valid DICOM header.
+            - If `True`, perform DICOM header validation (slower but more accurate).
+            - If `False`, skip header validation and rely on extension.
 
     extension : str, optional
-                    File extension to search for (e.g., "dcm"). If `None`, consider all files
-                    regardless of extension.
+        File extension to search for (e.g., "dcm"). If `None`, consider all files
+        regardless of extension.
 
     limit : int, optional
-                    Maximum number of DICOM files to return. If `None`, return all found files.
+        Maximum number of DICOM files to return. If `None`, return all found files.
 
     Returns
     -------
     List[Path]
-                    A list of valid DICOM file paths found in the directory.
+        A list of valid DICOM file paths found in the directory.
 
     Notes
     -----
     - If `check_header` is enabled, the function checks each file for a valid
-            DICOM header, which may slow down the search process.
+        DICOM header, which may slow down the search process.
 
     Examples
     --------
@@ -175,8 +171,11 @@ def find_dicoms(
     files = (
         file.absolute()
         for file in glob_method(pattern)
-        if _is_valid_dicom(file, check_header)
-        and (not search_input or all(term in str(file.as_posix()) for term in search_input))
+        if (
+            not search_input
+            or all(term in str(file.as_posix()) for term in search_input)
+        )
+        and _is_valid_dicom(file, check_header)
     )
 
     return list(islice(files, limit)) if limit else list(files)
@@ -186,7 +185,9 @@ def find_dicoms(
 # DICOM TAG UTILITIES
 ###############################################################################
 
-ALL_DICOM_TAGS: FrozenSet[str] = frozenset(value[4] for value in DicomDictionary.values())
+ALL_DICOM_TAGS: FrozenSet[str] = frozenset(
+    value[4] for value in DicomDictionary.values()
+)
 
 
 @functools.lru_cache(maxsize=1024)

@@ -9,17 +9,9 @@ from pydicom import Dataset, dcmread
 
 from imgtools.logging import logger
 
+from .utils import read_image
+
 T = TypeVar("T")
-
-
-def read_image(path: str) -> sitk.Image:  # noqa
-    reader = sitk.ImageSeriesReader()
-    dicom_names = reader.GetGDCMSeriesFileNames(path)
-    reader.SetFileNames(dicom_names)
-    reader.MetaDataDictionaryArrayUpdateOn()
-    reader.LoadPrivateTagsOn()
-
-    return reader.Execute()
 
 
 class Dose(sitk.Image):
@@ -35,7 +27,7 @@ class Dose(sitk.Image):
             self.metadata = {}
 
     @classmethod
-    def from_dicom_rtdose(cls, path: str) -> Dose:
+    def from_dicom(cls, path: str) -> Dose:
         """
         Reads the data and returns the data frame and the image dosage in SITK format
         """
@@ -120,7 +112,9 @@ class Dose(sitk.Image):
 
                 # ROI ID
                 roi_reference = (
-                    self.df.DVHSequence[i].DVHReferencedROISequence[0].ReferencedROINumber
+                    self.df.DVHSequence[i]
+                    .DVHReferencedROISequence[0]
+                    .ReferencedROINumber
                 )
 
                 # Make dictionary for each ROI ID
@@ -143,7 +137,9 @@ class Dose(sitk.Image):
                 self.dvh[roi_reference]["min_dose"] = min_dose
                 self.dvh[roi_reference]["total_vol"] = tot_vol
         except AttributeError:
-            logger.warning("No DVH information present in the DICOM. Returning empty dictionary")
+            logger.warning(
+                "No DVH information present in the DICOM. Returning empty dictionary"
+            )
             self.dvh = {}
 
         return self.dvh
