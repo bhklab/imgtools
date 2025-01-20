@@ -8,14 +8,18 @@ to handle file writing tasks efficiently and consistently.
 If you’re building a writer to manage file outputs with custom paths, filenames, or formats,
 this is where you start!
 
+For details on implementing the `AbstractBaseWriter` in your custom writer, see the
+[Implementing Writers](./ImplementingWriters.md) guide.
+
 ## Introduction
 
 ### What is the `AbstractBaseWriter`?
 
-- Abstract base class for managing file-writing tasks.  
-- Handles directories, filenames, and existing file scenarios.  
-- Provides reusable methods for context management and logging.  
-- Cannot be used directly – meant to be extended with your custom logic.  
+The `AbstractBaseWriter` is:
+
+- **A reusable template**: Manage file-writing tasks consistently across different writer implementations.  
+- **Customizable**: Extend it to handle your file formats and workflows.  
+- **Safe and robust**: Features context management, filename sanitization, and optional CSV indexing.  
 
 ### When Should you extend `AbstractBaseWriter` for your custom writer?
 
@@ -25,72 +29,170 @@ to manage file existence scenarios, you might consider extending `AbstractBaseWr
 
 `AbstractBaseWriter` is useful when you need:
 
-- Dynamic paths and filenames based on placeholders like `{subject_id}`.  
-- Control over what happens when files already exist (overwrite, skip, etc.).  
-- Easy logging of saved files with an optional CSV index.  
+- Dynamic paths and filenames (e.g., `{subject_id}/{study_date}.nii.gz`).  
+- Configurable handling of existing files (`OVERWRITE`, `SKIP`, etc.).  
+- Logging of saved files via an optional CSV index.  
+- Thread-safe and multiprocessing-compatible file writing.  
 - A consistent interface across different types of writers.  
 
 ---
 
 ## Core Concepts
 
-### Root Directory and Filename Format
+### Root Directory and Filename Format Parameters
 
 **Root Directory**:
 
-- The base folder where all files will be written.  
-- Automatically created if it doesn’t exist (configurable).  
-- Example: `/data/outputs`.
+- Base folder for all saved files, automatically created if missing (via `create_dirs` parameter)
 
 **Filename Format**:
 
 - A string template defining your file and folder names.  
 - Uses placeholders like `{key}` to insert context values dynamically.  
-- Example: `"{subject_id}/{date}_{session}.txt"` becomes `1234/2025-01-01_A.txt`.  
+
+Example:
+
+```python
+writer = ExampleWriter(
+    root_directory="./data",
+    filename_format="{person_name}/{date}_{message_type}.txt",
+)
+
+# Save a file with context variables
+data = "Hello, World!"
+writer.save(
+  data, 
+  person_name="JohnDoe",
+  date="2025-01-01",
+  message_type="greeting"
+)
+
+# Saved file path: 
+# ./data/JohnDoe/2025-01-01_greeting.txt
+```
 
 ### File Existence Modes
 
-Control what happens if the file already exists:  
+**Why It Matters**:
+
+- When your writer saves a file, it needs to decide what to do if a file with the same name already exists.
+- This is especially important in batch operations or when writing to shared directories.
+- The `AbstractBaseWriter` provides several options to handle this scenario through the use of
+  an `enum` called `ExistingFileMode`.
+
+**Available Modes**:
 
 - **`OVERWRITE`**: Delete and replace the file.  
-- **`SKIP`**: Skip writing and return `None`.  
+- **`SKIP`**: Skip the writing step.  
 - **`FAIL`**: Raise an error if the file exists.  
 - **`RAISE_WARNING`**: Log a warning and proceed with saving.  
 
-### Context Management
+It is important to handle these options carefully in your writer's `save()` method to
+avoid data loss or conflicts.
+
+## Advanced Concepts
+
+### Previewing File Paths and Caching Context
 
 In basic usage, users can pass in the context information as keyword arguments to each
-`save()` call. However, the `AbstractBaseWriter` also provides a `set_context()` method
-that allows you to set the context once and then call `save()` without passing in the context
-again, or allowing to update specific context variables as needed.
+`save()` call.
 
-**Context Variables**:
+However, this can become cumbersome when the same context variables are used across multiple
+save operations.
 
-- A dictionary of key-value pairs used to resolve placeholders in the filename.  
-- Example: `{"subject_id": "1234", "date": "2025-01-01"}`.  
-- Set via `set_context()` or passed directly to methods like `save()`.
+Example:
 
-**Dynamic Updates**:  
+```python
+writer = ExampleWriter(
+    root_directory="./data",
+    filename_format="{class_subject}/{person_name}/{date}_{message_type}.txt",
+)
 
-- Context can be updated as needed for different files in a batch.  
+student_greetings = {
+    "Alice": "Hello, Alice!",
+    "Bob": "Hi, Bob!",
+    "Charlie": "Hey, Charlie!",
+}
+
+# Basic usage
+for student, message in student_greetings.items():
+    writer.save(
+        message,
+        person_name=student,
+        class_subject="math",
+        date="2025-01-01",
+        message_type="greeting"
+    )
+```
+
+In the above example, the `date` and `message_type` context variables are the same for all
+students. Instead of passing them in every time, you can store these variables in the writer
+itself and update them as needed.
+
+```python
+# Advanced usage
+writer.set_context(class_subject="math", date="2025-01-01", message_type="greeting")
+
+for student, message in student_greetings.items():
+    writer.save(message, person_name=student)
+
+# clear context if needed
+writer.clear_context()
+```
+
+If majority of the context variables are the same across all save operations, you can
+set context when initializing the writer.
+
+```python
+writer = ExampleWriter(
+    root_directory="./data",
+    filename_format="{class_subject}/{person_name}/{date}_{message_type}.txt",
+    context={"class_subject": "math", "date": "2025-01-01", "message_type": "greeting"}
+)
+```
+
+Oftentimes, you may want to check if a file exists before performing an expensive computation.
+If you set the existence mode to `SKIP`, the `preview_path()` method will return `None` if the
+file already exists, allowing you to skip the computation.
+
+This method also caches the additional context variables for future use.
+
+Here's an example of how you might handle this:
+
+```python
+writer.set_context(class_subject="math", date="2025-01-01", message_type="greeting")
+
+if (path := writer.preview_path(person_name="Alice")) is None:
+    print("File already exists, skipping computation.")
+else:
+    print(f"Proceed with computation for {path}")
+    ... 
+    # perform expensive computation 
+    ...
+    writer.save(content="Hello, world!")
+```
 
 ### Index File Management
 
 **What is the Index File?**:
 
 - A CSV file used to log details about saved files, like their paths and context variables.  
-- Helps track what files have been written, especially useful in batch operations.  
+- Helps track what files have been written, especially useful in batch operations.
+- Additionally can save all the context variables used for each file, convienient for
+  saving additional metadata, while improving traceability.
 
 **How It Works**:
 
-- By default, the index file is named `index.csv` and is stored in the root directory.  
+- By default, it is named `{root_directory.name}_index.csv`.
 - You can customize the filename or provide an absolute path for more control.  
+- This is something that the `save()` method in the `AbstractBaseWriter` should **optionally**
+  implement, or let users decide to include the index by calling `add_to_index(path)` after `save()`.
 
 **Key Features**:
 
-- Automatically appends new entries for each saved file.  
-- Uses inter-process locking to prevent conflicts in multi-threaded environments.  
-- Includes context variables for each file, ensuring traceability.
+- **Customizable Filename**: Use index_filename to set a custom name or absolute path.
+- **Absolute/Relative Paths**: Control file paths in the index with absolute_paths_in_index.
+- **Inter-process Locking**: Prevents conflicts in concurrent writing environments.
 
 ### Sanitizing Filenames
 
@@ -101,7 +203,7 @@ again, or allowing to update specific context variables as needed.
 **How It Works**:
 
 - Replaces illegal characters (e.g., `<`, `>`, `:`, `"`, `/`, `\`, `|`, `?`, `*`) with underscores.  
-- Trims leading or trailing spaces and periods to avoid issues.  
+- Trims leading or trailing spaces and periods to avoid issues.
 
 **When Is It Applied?**:
 

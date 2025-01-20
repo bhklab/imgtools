@@ -6,7 +6,7 @@ steps to extend the class and implement your custom functionality.
 
 ---
 
-## 3. Setting Up Your Writer
+## Setting Up Your Writer
 
 To create a custom writer, you need to extend the `AbstractBaseWriter` and
 implement the `save` method. This method is the core of your writer, handling
@@ -25,11 +25,11 @@ how and where data is saved.
    - Override any existing methods for specific behavior.  
    - Add additional methods or properties to enhance functionality.  
 
-### Example
+### Simple Example
 
 ```python
 from pathlib import Path
-from mypackage.abstract_base_writer import AbstractBaseWriter
+from imgtools.io import AbstractBaseWriter
 
 class MyCustomWriter(AbstractBaseWriter):
     def save(self, content: str, **kwargs) -> Path:
@@ -41,14 +41,14 @@ class MyCustomWriter(AbstractBaseWriter):
             f.write(content)
 
         # Log and track the save operation
-        self.dump_to_csv(output_path, **self.context)
+        self.add_to_index(output_path, **self.context)
 
         return output_path
 ```
 
 ---
 
-## 4. Implementing the `save` Method
+## Implementing the `save` Method
 
 The `save` method is the heart of your custom writer. It determines how data
 is written to files and interacts with the core features of `AbstractBaseWriter`.
@@ -58,7 +58,8 @@ is written to files and interacts with the core features of `AbstractBaseWriter`
 1. **Path Resolution**:
 
     - Use `resolve_path()` to dynamically generate file paths based on the provided
-        context and filename format.  
+        context and filename format.
+    - You can optionally use `preview_path()` as well.
     - Ensure paths are validated to prevent overwriting or duplication.
 
 2. **Data Writing**:  
@@ -69,7 +70,7 @@ is written to files and interacts with the core features of `AbstractBaseWriter`
 3. **Logging and Tracking**:  
   
     - Log each save operation for debugging or auditing purposes.  
-    - Use `dump_to_csv()` to maintain a record of saved files and their associated
+    - Use `add_to_index()` to maintain a record of saved files and their associated
         context variables.
 
 4. **Return Value**:  
@@ -88,6 +89,7 @@ from mypackage.abstract_base_writer import AbstractBaseWriter
 class MyCustomWriter(AbstractBaseWriter):
     def save(self, content: str, **kwargs) -> Path:
         # Step 1: Resolve the output file path
+        # you can try-catch this, or just let the error propagate
         try:
             output_path = self.resolve_path(**kwargs)
         except FileExistsError:
@@ -95,12 +97,12 @@ class MyCustomWriter(AbstractBaseWriter):
             # Optionally, log or re-raise the error based on your needs
             raise
 
-        # Optional handling for "RAISE_WARNING" mode
+        # Optional handling for "RAISE_WARNING" or "SKIP" modes
         if output_path.exists():
             # this will only be true if the file existence mode
-            # is set to RAISE_WARNING
-            # as OVERWRITE will have already deleted the file
-            # optionally choose to handle this if you want to
+            # is set to RAISE_WARNING OR SKIP
+            # - OVERWRITE will have already deleted the file
+            # - upto developer to choose to handle this if set to SKIP
             pass
 
         # Step 2: Write the content to the resolved path
@@ -108,14 +110,15 @@ class MyCustomWriter(AbstractBaseWriter):
             f.write(content)
 
         # Step 3: Log and track the save operation
-        self.dump_to_csv(output_path, **self.context)
+        self.add_to_index(output_path)
 
         # Step 4: Return the saved file path
         return output_path
-
 ```
 
-## 5. Key Methods
+---
+
+## Key Methods
 
 The `AbstractBaseWriter` provides several utility methods that simplify file writing
 and context management. These methods are designed to be flexible and reusable,
@@ -124,14 +127,14 @@ allowing you to focus on your custom implementation.
 For the descriptions below, lets consider this subclass of `AbstractBaseWriter`:
 
 ```python
-from mypackage.abstract_base_writer import AbstractBaseWriter
+from imgtools.io.abstract_base_writer import AbstractBaseWriter
 
 class ReportCardWriter(AbstractBaseWriter):
     def save(self, content: str, **kwargs) -> Path:
         output_path = self.resolve_path(**kwargs)
         with output_path.open(mode="w", encoding="utf-8") as f:
             f.write(content)
-        self.dump_to_csv(output_path, **self.context)
+        self.add_to_index(output_path)
         return output_path
 ```
 
@@ -144,8 +147,6 @@ writer = ReportCardWriter(
 )
 ```
 
----
-
 ### `resolve_path`
 
 **What It Does**:
@@ -155,17 +156,19 @@ writer = ReportCardWriter(
 **When to Use It**:
 
 - This method is meant to be used in the `save` method to determine the file’s
-  target location.
+  target location, but can also be used by external code to generate paths.
 - It ensures you’re working with a valid path and can handle file existence scenarios.
+- Only raises `FileExistsError` if the file already exists and the mode is set to `FAIL`.
 
 **Example**:
 
 ```python
-output_path = writer.resolve_path(subject="math", name="example")
-print(f"Resolved path: {output_path}")
+  ...
+  # i.e kwargs = {"subject": "math", "name": "JohnDoe"}
+  output_path = writer.resolve_path(**kwargs) 
+  print(f"Resolved path: {output_path}")
+  ...
 ```
-
----
 
 ### `preview_path`
 
@@ -180,7 +183,7 @@ print(f"Resolved path: {output_path}")
 
 **When to Use It**:
 
-- Use this method to skip expensive computations if a file already exists and you
+- Meant to be called by users to skip expensive computations if a file already exists and you
   don’t want to overwrite it.  
 
 **Example**:
@@ -200,7 +203,7 @@ print(output_path)
 
 ---
 
-### `dump_to_csv`
+### `add_to_index`
 
 **What It Does**:
 
@@ -210,41 +213,16 @@ print(output_path)
 **When to Use It**:
 
 - Use this method to maintain a centralized record of saved files for auditing
-  or debugging.  
+  or debugging.
 
-**NOTE**: if the index file already exists upon class instantiation, it will be
-DELETED. This is to ensure that the index file is always up-to-date with the
-current state of the writer.
+**Relevant Parameters**:
 
----
-
-### `set_context`
-
-**What It Does**:
-
-- Updates the writer’s internal context with new key-value pairs.  
-- Allows for dynamic updates to context variables across multiple saves.
-
-**When to Use It**:
-
-- Use this method to predefine context values that will remain consistent across
-  multiple save operations.  
-
-**Example**:
-
-Imagine that for this writer session, we have a fixed subject of "math", but
-many names of students to save reports for. We can set the subject once and then
-update the name for each student:
-
-```python
-writer.set_context(subject="math")
-out_path = writer.save(content="Hello, world!", name="student1")
-print(out_path)
-# 'results/outputs/math/student1_report.txt'
-output_path = writer.save(content="Hello, world!", name="student2")
-print(output_path)
-# 'results/outputs/math/student2_report.txt'
-```
+- The `index_filename` parameter allows you to specify a custom filename for the index file.
+  By default, it will be named after the `root_directory` with `_index.csv` appended.
+- If the index file already exists in the root directory, it will overwrite it unless
+  the `overwrite_index` parameter is set to `False`.
+- The `absolute_paths_in_index` parameter controls whether the paths in the index file
+  are absolute or relative to the root directory, with `False` being the default.
 
 ---
 
@@ -258,8 +236,10 @@ print(output_path)
 
 **When to Use It**:
 
-- Typically called internally by `resolve_path()` but can be useful for debugging
-  or custom path generation.
+- Typically called internally by `resolve_path()` and `preview_path()`, which handle
+  additional validation and error handling.
+- Can be called by your class methods to generate paths without the additional
+  context checks.
 
 **Example**:
 
