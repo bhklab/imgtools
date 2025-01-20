@@ -17,9 +17,9 @@ class HDF5Writer(AbstractBaseWriter):
         self._validate_h5py()
         self.super().__post_init__()
 
-    def save(self, data: Any, path: Path) -> None:
+    def save(self, data: Any, path: Path) -> None:  # noqa
         """Save data to HDF5 file.
-         
+
         TODO: see PyTables for more advanced HDF5 writing options.
 
         Args:

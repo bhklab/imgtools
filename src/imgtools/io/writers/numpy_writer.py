@@ -1,5 +1,4 @@
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
 from typing import Any, ClassVar
 
 import numpy as np
@@ -39,7 +38,7 @@ class NumPyWriter(AbstractBaseWriter):
             )
             raise NumpyWriterValidationError(msg)
 
-    def save(self, data: Any, **kwargs) -> None:
+    def save(self, data: Any, **kwargs) -> None:  # noqa
         """Save data to NumPy file.
 
         Parameters
@@ -58,13 +57,11 @@ class NumPyWriter(AbstractBaseWriter):
                 if isinstance(data, np.ndarray):
                     np.save(out_path, data)
                 else:
-                    raise NumpyWriterValidationError(
-                        f"Data must be a single NumPy array for .npy files, got {type(data)}."
-                    )
+                    msg = f"Data must be a single NumPy array for .npy files, got {type(data)}."
+                    raise NumpyWriterValidationError(msg)
             case ".npz":
                 if isinstance(data, dict):
                     np.savez(out_path, **data)
                 else:
-                    raise NumpyWriterValidationError(
-                        f"Data must be a dictionary of NumPy arrays for .npz files, got {type(data)}."
-                    )
+                    msg = f"Data must be a dictionary of NumPy arrays for .npz files, got {type(data)}."
+                    raise NumpyWriterValidationError(msg)

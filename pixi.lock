@@ -4489,39 +4489,8 @@ packages:
   timestamp: 1733255681319
 - pypi: .
   name: med-imagetools
-  version: 1.14.0
-  sha256: 0eb4268865eaebd378db5a3fae520e90f64d4ff56df70a3fae8bc04a1843f520
-  requires_dist:
-  - h5py>=3.11.0,<4
-  - joblib>=1.4.2,<2
-  - numpy<3
-  - matplotlib>=3.8.4,<4
-  - pandas<3
-  - pydicom>=2.4.4
-  - pynrrd>=1.0.0,<2
-  - scikit-image>=0.23.2,<1
-  - scikit-learn>=1.4.2,<2
-  - simpleitk>=2.3.1,<3
-  - tqdm>=4.66.4,<5
-  - fasteners==0.19
-  - pyyaml>=6.0.1,<7
-  - dill>=0.3.8,<1
-  - attrs>=23.2.0
-  - structlog>=24.0,<25
-  - click>=8.1,<9
-  - rich>=13.9.4
-  - sqlitedict>=2.0
-  - sqlalchemy>=2.0.0
-  - torch ; extra == 'torch'
-  - torchio ; extra == 'torch'
-  - pyvis ; extra == 'debug'
-  - h5py>=3.0.0 ; extra == 'hdf5'
-  requires_python: '>=3.10,<4'
-  editable: true
-- pypi: .
-  name: med-imagetools
-  version: 1.14.0
-  sha256: e63e7775bc1a75e5c1a280522a715ad1e2a1c4173740cdb1ab6c2dc5e93c2d79
+  version: 1.15.0
+  sha256: 3514e0d8846fc00ca1b8f50625ab9f91c73a39bef15db154c41aa9024e3a3741
   requires_dist:
   - h5py>=3.11.0,<4
   - joblib>=1.4.2,<2

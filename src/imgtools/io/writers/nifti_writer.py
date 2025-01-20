@@ -55,11 +55,7 @@ class NIFTIWriter(AbstractBaseWriter):
         """
         super().__post_init__()
 
-        if (
-            not self.MIN_COMPRESSION_LEVEL
-            <= self.compression_level
-            <= self.MAX_COMPRESSION_LEVEL
-        ):
+        if not self.MIN_COMPRESSION_LEVEL <= self.compression_level <= self.MAX_COMPRESSION_LEVEL:
             msg = (
                 f"Invalid compression level {self.compression_level}. "
                 f"Must be between {self.MIN_COMPRESSION_LEVEL} and "
@@ -124,9 +120,7 @@ class NIFTIWriter(AbstractBaseWriter):
                     _save_to_index = False
 
         try:
-            logger.debug(
-                f"Saving image to {out_path}.", compression_level=self.compression_level
-            )
+            logger.debug(f"Saving image to {out_path}.", compression_level=self.compression_level)
             sitk.WriteImage(
                 image,
                 str(out_path),
@@ -134,9 +128,8 @@ class NIFTIWriter(AbstractBaseWriter):
                 compressionLevel=self.compression_level,
             )
         except Exception as e:
-            raise NiftiWriterIOError(
-                f"Error writing image to file {out_path}: {e}"
-            ) from e
+            msg = f"Error writing image to file {out_path}: {e}"
+            raise NiftiWriterIOError(msg) from e
         else:
             logger.info("Image saved successfully.", out_path=out_path)
 

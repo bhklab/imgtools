@@ -84,17 +84,13 @@ class PatternResolver:
             self.pattern_parser = PatternParser(
                 self.filename_format, pattern_parser=self.DEFAULT_PATTERN
             )
-            self.formatted_pattern, self.keys = (
-                self.parse()
-            )  # Validate the pattern by parsing it
+            self.formatted_pattern, self.keys = self.parse()  # Validate the pattern by parsing it
         except InvalidPatternError as e:
             msg = f"Invalid filename format: {e}"
             raise PatternResolverError(msg) from e
         else:
             logger.debug("All keys are valid.", keys=self.keys)
-            logger.debug(
-                "Formatted Pattern valid.", formatted_pattern=self.formatted_pattern
-            )
+            logger.debug("Formatted Pattern valid.", formatted_pattern=self.formatted_pattern)
 
     def parse(self) -> Tuple[str, list[str]]:
         """
@@ -151,10 +147,3 @@ class PatternResolver:
                 class_name=self.__class__.__name__,
                 key=e.args[0],
             ) from e
-        # except KeyError as e:
-        #     # key error will be raised if formatted_pattern contains a key not in context
-        #     missing_keys = set(context.keys()) - set(self.keys)
-        #     msg = f"Missing value for placeholder(s): {missing_keys}"
-        #     msg += "\nPlease provide a value for this key in the `context` argument."
-        #     msg += f" i.e `{self.__class__.__name__}.save(..., {e.args[0]}=value)`."
-        #     raise PatternResolverError(msg) from e
