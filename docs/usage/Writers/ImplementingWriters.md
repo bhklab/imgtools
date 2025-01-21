@@ -12,18 +12,21 @@ To create a custom writer, you need to extend the `AbstractBaseWriter` and
 implement the `save` method. This method is the core of your writer, handling
 how and where data is saved.
 
+For a walkthrough of **all** key methods and features, see the
+[Key Methods](#key-methods) section below.
+
 ### Steps to Set Up
 
 1. **Inherit from `AbstractBaseWriter`**:  
    Create a new class and extend `AbstractBaseWriter`.
 
 2. **Define the `save` Method**:  
-   - Implement the logic for saving data.  
-   - Use `resolve_path()` or `preview_path()` to generate file paths.  
+  Use `resolve_path()` or `preview_path()` to generate file paths.  
+  Implement the logic for saving data.  
 
-3. **Customize Behavior (Optional)**:  
-   - Override any existing methods for specific behavior.  
-   - Add additional methods or properties to enhance functionality.  
+3. **Customize Behavior (Optional)**:
+  Override any existing methods for specific behavior.  
+  Add additional methods or properties to enhance functionality.  
 
 ### Simple Example
 
@@ -80,7 +83,9 @@ is written to files and interacts with the core features of `AbstractBaseWriter`
 
 ### Example Implementation
 
-Here’s a minimal implementation of the `save` method for a custom writer:
+Here’s a minimal implementation of the `save` method for a custom writer.
+
+
 
 ```python
 from pathlib import Path
@@ -89,15 +94,11 @@ from mypackage.abstract_base_writer import AbstractBaseWriter
 class MyCustomWriter(AbstractBaseWriter):
     def save(self, content: str, **kwargs) -> Path:
         # Step 1: Resolve the output file path
-        # you can try-catch this, or just let the error propagate
-        try:
-            output_path = self.resolve_path(**kwargs)
-        except FileExistsError:
-            # Handle "FAIL" mode: File already exists
-            # Optionally, log or re-raise the error based on your needs
-            raise
+        # you can try-catch this in case set to "FAIL" mode
+        # or just let the error propagate
+        output_path = self.resolve_path(**kwargs) # resolve_path will always return the path
 
-        # Optional handling for "RAISE_WARNING" or "SKIP" modes
+        # OPTIONAL handling for "RAISE_WARNING" or "SKIP" modes
         if output_path.exists():
             # this will only be true if the file existence mode
             # is set to RAISE_WARNING OR SKIP
@@ -110,15 +111,17 @@ class MyCustomWriter(AbstractBaseWriter):
             f.write(content)
 
         # Step 3: Log and track the save operation
-        self.add_to_index(output_path)
+        self.add_to_index(output_path, filepath_column="filepath", **kwargs)
 
-        # Step 4: Return the saved file path
+        # Step 4: ALWAYS Return the saved file path
         return output_path
 ```
 
 ---
 
 ## Key Methods
+
+### ***TODO:: would it be helpful to embed the actual code signatures + docstrings here?***
 
 The `AbstractBaseWriter` provides several utility methods that simplify file writing
 and context management. These methods are designed to be flexible and reusable,

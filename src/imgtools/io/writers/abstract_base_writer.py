@@ -144,6 +144,19 @@ class AbstractBaseWriter(ABC):
         if isinstance(self.existing_file_mode, str):
             self.existing_file_mode = ExistingFileMode[self.existing_file_mode.upper()]
 
+    @abstractmethod
+    def save(self, *args: Any, **kwargs: Any) -> Path:  # noqa
+        """Abstract method for writing data. Must be implemented by subclasses.
+
+        Can use resolve_path() or resolve_and_validate_path() to get the output path.
+
+        For efficiency, use self.context to access the context variables, updating
+        them with the kwargs passed from the save method.
+
+        This will help simplify repeated saves with similar context variables.
+        """
+        pass
+
     @property
     def index_file(self) -> Path:
         """Get the path to the index CSV file."""
@@ -162,19 +175,6 @@ class AbstractBaseWriter(ABC):
     def _get_index_lock(self) -> Path:
         """Get the path to the lock file for the index CSV."""
         return Path(f"{self.index_file}.lock")
-
-    @abstractmethod
-    def save(self, *args: Any, **kwargs: Any) -> Path:  # noqa
-        """Abstract method for writing data. Must be implemented by subclasses.
-
-        Can use resolve_path() or resolve_and_validate_path() to get the output path.
-
-        For efficiency, use self.context to access the context variables, updating
-        them with the kwargs passed from the save method.
-
-        This will help simplify repeated saves with similar context variables.
-        """
-        pass
 
     def set_context(self, **kwargs: Any) -> None:  # noqa: ANN401
         """Set the context for the writer."""
