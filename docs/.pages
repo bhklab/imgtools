@@ -1,4 +1,5 @@
 nav:
   - Home: index.md
+  - Usage: usage
   - CLI Reference: cli
   - API Reference: reference

@@ -14,6 +14,22 @@ class PatternResolverError(Exception):
     pass
 
 
+class MissingPlaceholderValueError(PatternResolverError):
+    """Raised when a required placeholder value is missing in the context."""
+
+    def __init__(self, missing_keys: set[str], class_name: str, key: str) -> None:
+        self.missing_keys = missing_keys
+        self.class_name = class_name
+        self.key = key
+        super().__init__(self._build_message())
+
+    def _build_message(self) -> str:
+        msg = f"Missing value for placeholder(s): {self.missing_keys}."
+        msg += "\nPlease provide a value for this key in the `context` argument."
+        msg += f"\nFor example: `{self.class_name}.save(..., {self.key}=value)`."
+        return msg
+
+
 @dataclass
 class PatternResolver:
     r"""Handles parsing and validating filename patterns.
@@ -68,17 +84,13 @@ class PatternResolver:
             self.pattern_parser = PatternParser(
                 self.filename_format, pattern_parser=self.DEFAULT_PATTERN
             )
-            self.formatted_pattern, self.keys = (
-                self.parse()
-            )  # Validate the pattern by parsing it
+            self.formatted_pattern, self.keys = self.parse()  # Validate the pattern by parsing it
         except InvalidPatternError as e:
             msg = f"Invalid filename format: {e}"
             raise PatternResolverError(msg) from e
         else:
             logger.debug("All keys are valid.", keys=self.keys)
-            logger.debug(
-                "Formatted Pattern valid.", formatted_pattern=self.formatted_pattern
-            )
+            logger.debug("Formatted Pattern valid.", formatted_pattern=self.formatted_pattern)
 
     def parse(self) -> Tuple[str, list[str]]:
         """
@@ -128,9 +140,10 @@ class PatternResolver:
         try:
             return self.formatted_pattern % context
         except KeyError as e:
-            # key error will be raised if formatted_pattern contains a key not in context
-            missing_keys = set(context.keys()) - set(self.keys)
-            msg = f"Missing value for placeholder(s): {missing_keys}"
-            msg += "\nPlease provide a value for this key in the `context` argument."
-            msg += f" i.e `{self.__class__.__name__}.save(..., {e.args[0]}=value)`."
-            raise PatternResolverError(msg) from e
+            # Determine the missing key and construct the error dynamically
+            missing_keys = set(self.keys) - set(context.keys())
+            raise MissingPlaceholderValueError(
+                missing_keys=missing_keys,
+                class_name=self.__class__.__name__,
+                key=e.args[0],
+            ) from e

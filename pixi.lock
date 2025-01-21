@@ -4490,7 +4490,7 @@ packages:
 - pypi: .
   name: med-imagetools
   version: 1.15.0
-  sha256: 236f965548b77fca5604d45b9f04040190436c79ae799bc0aa87a97be8938ab7
+  sha256: 3514e0d8846fc00ca1b8f50625ab9f91c73a39bef15db154c41aa9024e3a3741
   requires_dist:
   - h5py>=3.11.0,<4
   - joblib>=1.4.2,<2
@@ -4515,6 +4515,7 @@ packages:
   - torch ; extra == 'torch'
   - torchio ; extra == 'torch'
   - pyvis ; extra == 'debug'
+  - h5py>=3.0.0 ; extra == 'hdf5'
   requires_python: '>=3.10,<4'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/noarch/mergedeep-1.3.4-pyhd8ed1ab_1.conda
