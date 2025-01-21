@@ -104,26 +104,23 @@ class NIFTIWriter(AbstractBaseWriter):
                 msg = "Input must be a SimpleITK Image or a numpy array"
                 raise NiftiWriterValidationError(msg)
 
-        logger.debug("Saving.", kwargs=kwargs)
-
-        out_path = self.resolve_path(**kwargs)
-        _save_to_index = True
-
-        if out_path.exists():
-            match self.existing_file_mode:
-                case ExistingFileMode.SKIP:
-                    logger.info("File exists, skipping.", out_path=out_path)
-                    return out_path
-                case _:
-                    # This is assuming that it already exists in the index?
-                    # perhaps we can add a check here to see if it exists in the index
-                    _save_to_index = False
+        if (
+            (out_path := self.resolve_path(**kwargs)).exists()  # check if it exists
+            and self.existing_file_mode == ExistingFileMode.SKIP  # OVERWRITE would have deleted
+        ):
+            logger.debug("File exists, skipping.", kwargs=kwargs, out_path=out_path)
+            return out_path
 
         try:
-            logger.debug(f"Saving image to {out_path}.", compression_level=self.compression_level)
+            logger.debug(
+                f"Saving image to {out_path}.",
+                kwargs=kwargs,
+                out_path=out_path,
+                compression_level=self.compression_level,
+            )
             sitk.WriteImage(
                 image,
-                str(out_path),
+                out_path.as_posix(),
                 useCompression=True,
                 compressionLevel=self.compression_level,
             )
@@ -136,6 +133,10 @@ class NIFTIWriter(AbstractBaseWriter):
         # Log and dump metadata to CSV
         logger.debug(f"Image saved successfully: {out_path}")
 
-        if _save_to_index:
-            self.add_to_index(out_path, **kwargs)
+        self.add_to_index(
+            out_path,
+            filepath_column="filepath",
+            replace_existing=out_path.exists(),
+            **kwargs,  # any additional kwargs can be passed to the index
+        )
         return out_path

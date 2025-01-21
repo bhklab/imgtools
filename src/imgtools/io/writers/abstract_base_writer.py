@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from csv import DictWriter
+import csv
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum, auto
@@ -105,7 +105,7 @@ class AbstractBaseWriter(ABC):
     )
 
     overwrite_index: bool = field(
-        default=True,
+        default=False,
         metadata={"help": "If True, overwrites the index file if it already exists."},
     )
 
@@ -152,12 +152,12 @@ class AbstractBaseWriter(ABC):
         return self.root_directory / self._index_filename
 
     @property
-    def _index_filename(self) -> Path:
+    def _index_filename(self) -> str:
         """Get the path to the index CSV file."""
         if self.index_filename is None:
             root_dir_basename = self.root_directory.name
-            return Path(f"{root_dir_basename}_index.csv")
-        return Path(self.index_filename)
+            return f"{root_dir_basename}_index.csv"
+        return self.index_filename
 
     def _get_index_lock(self) -> Path:
         """Get the path to the lock file for the index CSV."""
@@ -396,12 +396,11 @@ class AbstractBaseWriter(ABC):
         path: Path,
         include_all_context: bool = True,
         filepath_column: str = "path",
-        **additional_context: Any,  # noqa
+        replace_existing: bool = False,
+        **additional_context: Any,
     ) -> None:
-        """Dump the given path and context information to a shared CSV file.
-
-        This method writes the provided path and additional context information to a CSV file.
-        It uses an inter-process lock to prevent concurrent writes to the file.
+        """
+        Add or update an entry in the shared CSV index file.
 
         Parameters
         ----------
@@ -414,44 +413,65 @@ class AbstractBaseWriter(ABC):
         filepath_column : str
             The name of the column to store the file path.
             Defaults to "path".
+        replace_existing : bool
+            If True, checks if the file path already exists in the index and replaces it.
         **additional_context : Any
-            Additional context information as keyword-arguments to include in the CSV for this row.
+            Additional context information to include in the CSV.
 
         Notes
         -----
-        This does not handle the cases where the headers are different between calls.
+        Uses `csv.Sniffer` to validate the existing file format before processing
+        if `replace_existing` is set to True.
         """
 
         lock_file = self._get_index_lock()
         self._ensure_directory_exists(self.index_file.parent)
 
+        # Prepare context and resolve the file path
         context = {**self.context, **additional_context}
-
-        # Determine which context keys to include based on the parameter
-        if include_all_context:
-            save_context = context
-        else:
-            # only consider the keys that were used in the filename_format
-            save_context = {k: context[k] for k in self.pattern_resolver.keys}
-
-        fieldnames = [filepath_column, *save_context.keys()]
-
         resolved_path = (
             path.resolve().absolute()
             if self.absolute_paths_in_index
             else path.relative_to(self.root_directory)
         )
+        fieldnames = [
+            filepath_column,
+            *(context.keys() if include_all_context else self.pattern_resolver.keys),
+        ]
+
+        rows = []
+        if replace_existing and self.index_file.exists():
+            # Read and validate the index file format
+            try:
+                with (
+                    InterProcessLock(lock_file),
+                    self.index_file.open(mode="r", encoding="utf-8") as f,
+                ):
+                    sniffer = csv.Sniffer()
+                    if not sniffer.has_header(f.readline()):
+                        raise ValueError(f"Index file {self.index_file} is missing a header row.")
+                    f.seek(0)  # Reset the file pointer after sampling
+                    reader = csv.DictReader(f)
+                    if filepath_column not in reader.fieldnames:
+                        msg = f"Index file {self.index_file} does not contain the column '{filepath_column}'."
+                        raise ValueError(msg)
+                    rows = [row for row in reader if row[filepath_column] != str(resolved_path)]
+            except Exception as e:
+                logger.exception(f"Error validating index file {self.index_file}.", error=e)
+                raise
+
+        # Add the new or updated row
+        rows.append({filepath_column: str(resolved_path), **context})
+
+        # Write the updated rows back to the index file
         try:
-            with InterProcessLock(lock_file):
-                with self.index_file.open(mode="a", newline="", encoding="utf-8") as f:
-                    writer = DictWriter(f, fieldnames=fieldnames)
-
-                    # Write the header if the file is empty
-                    if self.index_file.stat().st_size == 0:
-                        writer.writeheader()
-
-                    # Write the data
-                    writer.writerow({"path": str(resolved_path), **save_context})
+            with (
+                InterProcessLock(lock_file),
+                self.index_file.open(mode="w", newline="", encoding="utf-8") as f,
+            ):
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
         except Exception as e:
             logger.exception(f"Error writing to index file {self.index_file}.", error=e)
             raise
@@ -486,7 +506,7 @@ class ExampleWriter(AbstractBaseWriter):
         # Log the save operation
         logger.debug(f"File saved: {output_path}")
 
-        self.add_to_index(output_path)
+        self.add_to_index(output_path, replace_existing=output_path.exists())
 
         return output_path
 
@@ -502,7 +522,7 @@ if __name__ == "__main__":
 
     # Configuration for the test
     num_processes = 2
-    files_per_process = 6
+    files_per_process = 5
 
     def write_files_in_process(
         process_id: int, writer_config: Dict[str, Any], file_count: int, mode: str
@@ -544,10 +564,6 @@ if __name__ == "__main__":
             write_files_in_process(process_id, writer_config, files_per_process, "single")
 
     ROOT_DIR = Path("./data/demo/abstract_writer_showcase")
-    if ROOT_DIR.exists():
-        import shutil
-
-        shutil.rmtree(ROOT_DIR)
 
     # Writer configuration
     writer_config = {
@@ -555,7 +571,8 @@ if __name__ == "__main__":
         "filename_format": "{experiment_type}/{name}_{extra_info}.txt",
         "create_dirs": True,
         "existing_file_mode": ExistingFileMode.OVERWRITE,
-        "overwrite_index": False,
+        "overwrite_index": False,  # default
+        "index_filename": "wow.csv",
     }
 
     try:

@@ -46,22 +46,11 @@ class NumPyWriter(AbstractBaseWriter):
             data: Data to save.
         """
 
-        logger.debug("Saving.", kwargs=kwargs)
+        # logger.debug("Saving.", kwargs=kwargs)
 
-        out_path = self.resolve_path(**kwargs)
-        _save_to_index = True
+        # out_path = self.resolve_path(**kwargs)
+        # _save_to_index = True
         # TODO: research about numpy saving and figure out if this logic is correct
         # TODO: maybe validate the type before this?
-        match out_path.suffix:
-            case ".npy":
-                if isinstance(data, np.ndarray):
-                    np.save(out_path, data)
-                else:
-                    msg = f"Data must be a single NumPy array for .npy files, got {type(data)}."
-                    raise NumpyWriterValidationError(msg)
-            case ".npz":
-                if isinstance(data, dict):
-                    np.savez(out_path, **data)
-                else:
-                    msg = f"Data must be a dictionary of NumPy arrays for .npz files, got {type(data)}."
-                    raise NumpyWriterValidationError(msg)
+        
+        pass
