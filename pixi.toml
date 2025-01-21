@@ -31,6 +31,13 @@ jupyterlab = "*"
 [feature.dev.activation.env]
 IMGTOOLS_LOG_LEVEL = "DEBUG"
 
+[feature.dev.tasks]
+clean = {	cmd = [
+		"bash",
+		"-c",
+		"rm -rf .cache && find . -type f -name '.coverage*' -exec rm -f {} +"
+	],	description = "Clear cache and coverage files"}
+
 ############################################## PYTHON ###############################################
 
 [feature.py310.dependencies]

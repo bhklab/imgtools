@@ -14,6 +14,7 @@ jobs:
   Unit-Tests:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15 # Consider increasing timeout
+    continue-on-error: true # dont fail the whole matrix if one fails
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, macos-14] # , windows-latest removed for now
@@ -41,6 +42,14 @@ jobs:
         with:
           name: coverage-report
           path: coverage-report
+
+      - name: JUnit Test Summary
+        id: pytest-summary
+        uses: test-summary/action@v2
+        with: 
+          paths: .cache/test-results/**/*.xml
+          show: all
+        if: always()
 
   ################################################################################################
   # Build-Docs: Build documentation using mkdocs
