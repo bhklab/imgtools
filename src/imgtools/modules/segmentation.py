@@ -103,7 +103,7 @@ def accepts_segmentations(f: Callable) -> Callable:
     ...     **kwargs,
     ... ) -> sitk.Image:
             # Perform some operation on the image
-    ...     return img  
+    ...     return img
     >>> segmentation = Segmentation(
     ...     image,
     ...     roi_indices={
@@ -268,7 +268,7 @@ class Segmentation(sitk.Image):
 
         self.existing_roi_indices = existing_roi_indices
 
-    # jjjermiah: this is literally NOT "from_dicom" lmao... 
+    # jjjermiah: this is literally NOT "from_dicom" lmao...
     # TODO: rename this to something more appropriate and add a proper from_dicom method
     @classmethod
     def from_dicom(cls, mask: sitk.Image, meta: Any) -> Segmentation:
@@ -332,9 +332,7 @@ class Segmentation(sitk.Image):
             # Background is stored implicitly and needs to be computed
             label_arr = sitk.GetArrayViewFromImage(self)
             # Create a binary image where background is 1 and other regions are 0
-            label_img = sitk.GetImageFromArray(
-                (label_arr.sum(-1) == 0).astype(np.uint8)
-            )
+            label_img = sitk.GetImageFromArray((label_arr.sum(-1) == 0).astype(np.uint8))
         else:
             # Retrieve the label image for the given label index
             label_img = sitk.VectorIndexSelectionCast(self, label - 1)
@@ -401,9 +399,7 @@ class Segmentation(sitk.Image):
         if len(mask_arr.shape) == 4:
             for i in range(mask_arr.shape[0]):
                 slc = mask_arr[i, :, :, :]
-                slc *= list(
-                    self.roi_indices.values()
-                )[
+                slc *= list(self.roi_indices.values())[
                     i
                 ]  # everything is 0 or 1, so this is fine to convert filled voxels to label indices
                 if verbose:

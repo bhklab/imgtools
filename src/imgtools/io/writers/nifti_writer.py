@@ -108,7 +108,7 @@ class NIFTIWriter(AbstractBaseWriter):
             (out_path := self.resolve_path(**kwargs)).exists()  # check if it exists
             # This will only be true if SKIP OR WARNING
             # OVERWRITE would have deleted the file
-            and self.existing_file_mode == ExistingFileMode.SKIP  
+            and self.existing_file_mode == ExistingFileMode.SKIP
         ):
             logger.debug("File exists, skipping.", kwargs=kwargs, out_path=out_path)
             return out_path

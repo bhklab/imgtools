@@ -150,7 +150,7 @@ writer = ReportCardWriter(
 )
 ```
 
-### `resolve_path`
+::: imgtools.io.writers.AbstractBaseWriter.resolve_path
 
 **What It Does**:
 
@@ -173,21 +173,8 @@ writer = ReportCardWriter(
   ...
 ```
 
-### `preview_path`
+::: imgtools.io.writers.AbstractBaseWriter.preview_path
 
-**What It Does**:
-
-- Pre-checks the file path based on context without writing the file.  
-- Returns `None` if the file exists and the mode is set to `SKIP`.  
-- Raises a `FileExistsError` if the mode is set to `FAIL`.
-- An added benefit of using `preview_path` is that it automatically caches the context
-  variables for future use, and `save()` can be called without passing in the context
-  variables again.
-
-**When to Use It**:
-
-- Meant to be called by users to skip expensive computations if a file already exists and you
-  don’t want to overwrite it.  
 
 **Example**:
 
@@ -206,7 +193,7 @@ print(output_path)
 
 ---
 
-### `add_to_index`
+::: imgtools.io.writers.AbstractBaseWriter.add_to_index
 
 **What It Does**:
 
@@ -229,7 +216,7 @@ print(output_path)
 
 ---
 
-### `_generate_path`
+::: imgtools.io.writers.AbstractBaseWriter._generate_path
 
 **What It Does**:
 

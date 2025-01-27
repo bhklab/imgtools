@@ -52,5 +52,5 @@ class NumPyWriter(AbstractBaseWriter):
         # _save_to_index = True
         # TODO: research about numpy saving and figure out if this logic is correct
         # TODO: maybe validate the type before this?
-        
+
         pass

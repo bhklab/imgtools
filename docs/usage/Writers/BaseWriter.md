@@ -84,8 +84,7 @@ writer.save(
 
 - **`OVERWRITE`**: Delete and replace the file.  
 - **`SKIP`**: Skip the writing step.  
-- **`FAIL`**: Raise an error if the file exists.  
-- **`RAISE_WARNING`**: Log a warning and proceed with saving.  
+- **`FAIL`**: Raise an exception if the file exists (default).
 
 It is important to handle these options carefully in your writer's `save()` method to
 avoid data loss or conflicts.

@@ -58,7 +58,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [src/imgtools/dicom/sort]
+          paths: [src/imgtools/dicom/sort, src/imgtools/io]
           options:
             extensions:
               - griffe_inherited_docstrings:
@@ -81,7 +81,7 @@ plugins:
             show_bases: false
             show_inheritance_diagram: true
             show_root_heading: true
-            show_root_full_path: true
+            show_root_full_path: false
             # Signatures
             annotations_path: brief
             modernize_annotations: true    # https://mkdocstrings.github.io/python/usage/configuration/signatures/#modernize_annotations

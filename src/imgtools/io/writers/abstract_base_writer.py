@@ -29,8 +29,6 @@ class ExistingFileMode(Enum):
         Overwrite the existing file. Logs as debug and continues with the operation.
     FAIL : auto()
         Fail the operation if the file exists. Logs as error and raises a FileExistsError.
-    RAISE_WARNING : auto()
-        Raise a warning if the file exists. Logs as warning and continues with the operation.
     SKIP : auto()
         Skip the operation if the file exists.
         Meant to be used for previewing the path before any expensive computation.
@@ -42,7 +40,6 @@ class ExistingFileMode(Enum):
     OVERWRITE = auto()
     SKIP = auto()
     FAIL = auto()
-    RAISE_WARNING = auto()
 
 
 @dataclass
@@ -76,9 +73,7 @@ class AbstractBaseWriter(ABC):
 
     existing_file_mode: ExistingFileMode = field(
         default=ExistingFileMode.FAIL,
-        metadata={
-            "help": "Behavior when a file already exists. Options: OVERWRITE, SKIP, FAIL, RAISE_WARNING."
-        },
+        metadata={"help": "Behavior when a file already exists. Options: OVERWRITE, SKIP, FAIL"},
     )
 
     sanitize_filenames: bool = field(
@@ -145,7 +140,7 @@ class AbstractBaseWriter(ABC):
             self.existing_file_mode = ExistingFileMode[self.existing_file_mode.upper()]
 
     @abstractmethod
-    def save(self, *args: Any, **kwargs: Any) -> Path:  # noqa
+    def save(self, *args: Any, **kwargs: object) -> Path:  # noqa
         """Abstract method for writing data. Must be implemented by subclasses.
 
         Can use resolve_path() or resolve_and_validate_path() to get the output path.
@@ -176,7 +171,7 @@ class AbstractBaseWriter(ABC):
         """Get the path to the lock file for the index CSV."""
         return Path(f"{self.index_file}.lock")
 
-    def set_context(self, **kwargs: Any) -> None:  # noqa: ANN401
+    def set_context(self, **kwargs: object) -> None:
         """Set the context for the writer."""
         self.context.update(kwargs)
 
@@ -184,7 +179,7 @@ class AbstractBaseWriter(ABC):
         """Clear the context for the writer."""
         self.context.clear()
 
-    def _generate_path(self, **kwargs: Any) -> Path:  # noqa: ANN401
+    def _generate_path(self, **kwargs: object) -> Path:
         """Helper for resolving paths with the given context."""
         save_context = {**self._generate_datetime_strings(), **self.context, **kwargs}
         self.set_context(**save_context)
@@ -206,32 +201,50 @@ class AbstractBaseWriter(ABC):
         )
         return out_path
 
-    def resolve_path(self, **kwargs: Any) -> Path:  # noqa: ANN401
+    def resolve_path(self, **kwargs: object) -> Path:
         """Generate a file path based on the filename format, subject ID, and additional parameters."""
         out_path = self._generate_path(**kwargs)
-        if not out_path.exists() and self.create_dirs:
-            self._ensure_directory_exists(out_path.parent)
+        if not out_path.exists():
+            if self.create_dirs:
+                self._ensure_directory_exists(out_path.parent)
+            # should we raise this error here?
+            # elif not out_path.parent.exists():
+            #     msg = f"Directory {out_path.parent} does not exist."
+            #     raise DirectoryNotFoundError(msg)
             return out_path
         match self.existing_file_mode:
             case ExistingFileMode.SKIP:
-                logger.debug(f"File {out_path} exists. Skipping.")
                 return out_path
             case ExistingFileMode.FAIL:
                 msg = f"File {out_path} already exists."
                 raise FileExistsError(msg)
-            case ExistingFileMode.RAISE_WARNING:
-                logger.warning(f"File {out_path} exists. Proceeding anyway.")
             case ExistingFileMode.OVERWRITE:
                 logger.debug(f"File {out_path} exists. Deleting and overwriting.")
                 out_path.unlink()
+                return out_path
 
-        return out_path
-
-    def preview_path(self, **kwargs: Any) -> Optional[Path]:  # noqa: ANN401
+    def preview_path(self, **kwargs: object) -> Optional[Path]:
         """Pre-checking file existence and setting up the writer context.
 
         Only difference between this and resolve_path is that this method returns
         None if the file exists and the mode is SKIP.
+
+        **What It Does**:
+
+        - Pre-checks the file path based on context without writing the file.
+        - Returns `None` if the file exists and the mode is set to `SKIP`.
+        - Raises a `FileExistsError` if the mode is set to `FAIL`.
+        - An added benefit of using `preview_path` is that it automatically caches the context
+        variables for future use, and `save()` can be called without passing in the context
+        variables again.
+
+        **When to Use It**:
+
+        - Meant to be called by users to skip expensive computations if a file already exists and you
+        don’t want to overwrite it.
+
+        Examples
+        --------
 
         Main idea here is to allow users to save computation if they choose to skip existing files.
         i.e if file exists and mode is SKIP, we return None, so the user can skip the computation.
@@ -245,7 +258,8 @@ class AbstractBaseWriter(ABC):
         the same context, optionally can update the context with new values passed to .save().
 
         >>> if path := writer.preview_path(subject="math", name="context_test"):
-        # do some expensive computation to generate the data you wish to save
+
+        do some expensive computation to generate the data you wish to save
         >>> writer.save(data)  # automatically uses the context set in preview_path
 
         Parameters
@@ -258,7 +272,6 @@ class AbstractBaseWriter(ABC):
         Path | None
             if the file exists and the mode is SKIP, returns None.
             if the file exists and the mode is FAIL, raises a FileExistsError.
-            if the file exists and the mode is RAISE_WARNING, logs a warning and returns the path.
             if the file exists and the mode is OVERWRITE, logs a debug message and returns the path.
 
         Raises
@@ -270,16 +283,17 @@ class AbstractBaseWriter(ABC):
 
         if not out_path.exists():
             return out_path
+        elif out_path.is_dir():
+            msg = f"Path {out_path} is already a directory that exists."
+            msg += " Use a different filename format or context to avoid this."
+            raise IsADirectoryError(msg)
 
         match self.existing_file_mode:
             case ExistingFileMode.SKIP:
-                logger.debug(f"File {out_path} exists. Skipping.")
                 return None
             case ExistingFileMode.FAIL:
                 msg = f"File {out_path} already exists."
                 raise FileExistsError(msg)
-            case ExistingFileMode.RAISE_WARNING:
-                logger.warning(f"File {out_path} exists. Proceeding anyway.")
             case ExistingFileMode.OVERWRITE:
                 logger.debug(f"File {out_path} exists. Deleting and overwriting.")
                 out_path.unlink()
