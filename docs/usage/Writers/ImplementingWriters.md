@@ -18,7 +18,9 @@ For a walkthrough of **all** key methods and features, see the
 ### Steps to Set Up
 
 1. **Inherit from `AbstractBaseWriter`**:  
-   Create a new class and extend `AbstractBaseWriter`.
+   Create a new class and extend `AbstractBaseWriter` with the appropriate type.
+   If you are saving text data, use `AbstractBaseWriter[str]`, for example.
+   If you are saving image data, use `AbstractBaseWriter[sitk.Image]`.
 
 2. **Define the `save` Method**:  
   Use `resolve_path()` or `preview_path()` to generate file paths.  
@@ -34,7 +36,7 @@ For a walkthrough of **all** key methods and features, see the
 from pathlib import Path
 from imgtools.io import AbstractBaseWriter
 
-class MyCustomWriter(AbstractBaseWriter):
+class MyCustomWriter(AbstractBaseWriter[str]):
     def save(self, content: str, **kwargs) -> Path:
         # Resolve the output file path
         output_path = self.resolve_path(**kwargs)
@@ -89,7 +91,7 @@ Here’s a minimal implementation of the `save` method for a custom writer.
 from pathlib import Path
 from mypackage.abstract_base_writer import AbstractBaseWriter
 
-class MyCustomWriter(AbstractBaseWriter):
+class MyCustomWriter(AbstractBaseWriter[str]):
     def save(self, content: str, **kwargs) -> Path:
         # Step 1: Resolve the output file path
         # you can try-catch this in case set to "FAIL" mode

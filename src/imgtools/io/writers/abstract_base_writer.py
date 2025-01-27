@@ -7,7 +7,15 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, NoReturn, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    NoReturn,
+    Optional,
+    TypeVar,
+    Generic,
+)
 
 from fasteners import InterProcessLock
 
@@ -20,6 +28,8 @@ from imgtools.pattern_parser import (
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+ContentType = TypeVar("ContentType")
 
 
 class ExistingFileMode(str, Enum):
@@ -47,8 +57,10 @@ class ExistingFileMode(str, Enum):
     FAIL = "fail"
 
 
+# here we add a Generic type to the class
+#
 @dataclass
-class AbstractBaseWriter(ABC):
+class AbstractBaseWriter(ABC, Generic[ContentType]):
     """
     Abstract base class for managing file writing with customizable paths and
     filenames.
@@ -172,7 +184,7 @@ class AbstractBaseWriter(ABC):
                 raise ValueError(errmsg)
 
     @abstractmethod
-    def save(self, *args: Any, **kwargs: object) -> Path:  # noqa
+    def save(self, data: ContentType, **kwargs: Any) -> Path:
         """
         Abstract method for writing data. Must be implemented by subclasses.
 
@@ -435,12 +447,15 @@ class AbstractBaseWriter(ABC):
         traceback : Optional[Any]
             The traceback object, if an exception was raised, otherwise None.
         """
+        logger.debug(f"Exiting context manager for {self.__class__.__name__}")
+
         if exc_type:
+            msg = f"An exception occurred in {self.__class__.__name__}."
             logger.exception(
-                f"Exception raised in {self.__class__.__name__} while in context manager.",
+                msg,
                 exc_info=exc_value,
             )
-        logger.debug(f"Exiting context manager for {self.__class__.__name__}")
+
         if self.index_file.exists():
             logger.debug(f"Removing lock file {self._get_index_lock()}")
             lock_file = self._get_index_lock()
@@ -489,7 +504,7 @@ class AbstractBaseWriter(ABC):
             directory.mkdir(parents=True, exist_ok=True)
             self._checked_directories.add(str(directory))
 
-    def put(self, *args, **kwargs) -> NoReturn:  # noqa
+    def put(self, *args, **kwargs) -> NoReturn:  # type: ignore # noqa
         """
         Accdidentally using put() instead of save() will raise a fatal error.
         """
@@ -607,6 +622,7 @@ class AbstractBaseWriter(ABC):
         ]
 
         rows = []
+        # Check if replacing existing entries and if the index file exists
         if replace_existing and self.index_file.exists():
             # Read and validate the index file format
             try:
@@ -614,22 +630,35 @@ class AbstractBaseWriter(ABC):
                     InterProcessLock(lock_file),
                     self.index_file.open(mode="r", encoding="utf-8") as f,
                 ):
+                    # Use csv.Sniffer to check if the file has a header
                     sniffer = csv.Sniffer()
                     if not sniffer.has_header(f.readline()):
-                        raise ValueError(
-                            f"Index file {self.index_file} is missing a header row."
+                        msg = (
+                            f"Index {self.index_file} is missing a header row."
                         )
-                    f.seek(0)  # Reset the file pointer after sampling
-                    reader = csv.DictReader(f)
-                    if filepath_column not in reader.fieldnames:
-                        msg = f"Index file {self.index_file} does not contain the column '{filepath_column}'."
                         raise ValueError(msg)
+
+                    # Reset the file pointer after sampling
+                    f.seek(0)
+                    reader = csv.DictReader(f)
+                    # Check if the required column is present in the index file
+                    if (
+                        reader.fieldnames is None
+                        or filepath_column not in reader.fieldnames
+                    ):
+                        msg = (
+                            f"Index file {self.index_file} does "
+                            f"not contain the column '{filepath_column}'."
+                        )
+                        raise ValueError(msg)
+                    # Filter out the existing entry for the resolved path
                     rows = [
                         row
                         for row in reader
                         if row[filepath_column] != str(resolved_path)
                     ]
             except Exception as e:
+                # Log and raise any exceptions encountered during validation
                 logger.exception(
                     f"Error validating index file {self.index_file}.", error=e
                 )
@@ -656,12 +685,12 @@ class AbstractBaseWriter(ABC):
             raise
 
 
-class ExampleWriter(AbstractBaseWriter):
+class ExampleWriter(AbstractBaseWriter[str]):
     """
     A concrete implementation of AbstractBaseWriter for demonstration.
     """
 
-    def save(self, content: str, **kwargs) -> Path:
+    def save(self, data: str, **kwargs: object) -> Path:
         """
         Save content to a file with the resolved path.
 
@@ -682,7 +711,7 @@ class ExampleWriter(AbstractBaseWriter):
 
         # Write content to the file
         with output_path.open(mode="w", encoding="utf-8") as f:
-            f.write(content)
+            f.write(data)
 
         # Log the save operation
         logger.debug(f"File saved: {output_path}")
@@ -694,132 +723,132 @@ class ExampleWriter(AbstractBaseWriter):
 
 # ruff: noqa
 
-if __name__ == "__main__":
-    import multiprocessing
-    import time
-    from pathlib import Path
-    from random import randint
-    from typing import Any, Dict
+# if __name__ == "__main__":
+#     import multiprocessing
+#     import time
+#     from pathlib import Path
+#     from random import randint
+#     from typing import Any, Dict
 
-    # Configuration for the test
-    num_processes = 2
-    files_per_process = 5
+#     # Configuration for the test
+#     num_processes = 2
+#     files_per_process = 5
 
-    def write_files_in_process(
-        process_id: int,
-        writer_config: Dict[str, Any],
-        file_count: int,
-        mode: str,
-    ):
-        """
-        Worker function for a process to write files using ExampleWriter.
-        """
-        writer = ExampleWriter(**writer_config)
+#     def write_files_in_process(
+#         process_id: int,
+#         writer_config: Dict[str, Any],
+#         file_count: int,
+#         mode: str,
+#     ):
+#         """
+#         Worker function for a process to write files using ExampleWriter.
+#         """
+#         writer = ExampleWriter(**writer_config)
 
-        content = f"This is a file written by process {process_id}."
-        with writer:
-            for i in range(file_count):
-                time.sleep(randint(1, 5) / 100)
-                context = {
-                    "name": f"file_{process_id}_{i:04}",
-                    "extra_info": f"process_{process_id}",
-                }
-                writer.save(content, **context, experiment_type=mode)
+#         content = f"This is a file written by process {process_id}."
+#         with writer:
+#             for i in range(file_count):
+#                 time.sleep(randint(1, 5) / 100)
+#                 context = {
+#                     "name": f"file_{process_id}_{i:04}",
+#                     "extra_info": f"process_{process_id}",
+#                 }
+#                 writer.save(content, **context, experiment_type=mode)
 
-    def run_multiprocessing(
-        writer_config: Dict[str, Any],
-        num_processes: int,
-        files_per_process: int,
-    ):
-        """
-        Run file-writing tasks using multiprocessing.
-        """
-        processes = []
-        for process_id in range(num_processes):
-            p = multiprocessing.Process(
-                target=write_files_in_process,
-                args=(
-                    process_id,
-                    writer_config,
-                    files_per_process,
-                    "multiprocessing",
-                ),
-            )
-            processes.append(p)
-            p.start()
+#     def run_multiprocessing(
+#         writer_config: Dict[str, Any],
+#         num_processes: int,
+#         files_per_process: int,
+#     ):
+#         """
+#         Run file-writing tasks using multiprocessing.
+#         """
+#         processes = []
+#         for process_id in range(num_processes):
+#             p = multiprocessing.Process(
+#                 target=write_files_in_process,
+#                 args=(
+#                     process_id,
+#                     writer_config,
+#                     files_per_process,
+#                     "multiprocessing",
+#                 ),
+#             )
+#             processes.append(p)
+#             p.start()
 
-        for p in processes:
-            p.join()
+#         for p in processes:
+#             p.join()
 
-    def run_single_process(
-        writer_config: Dict[str, Any],
-        num_processes: int,
-        files_per_process: int,
-    ):
-        """
-        Run file-writing tasks sequentially without multiprocessing.
-        """
-        for process_id in range(num_processes):
-            write_files_in_process(
-                process_id, writer_config, files_per_process, "single"
-            )
+#     def run_single_process(
+#         writer_config: Dict[str, Any],
+#         num_processes: int,
+#         files_per_process: int,
+#     ):
+#         """
+#         Run file-writing tasks sequentially without multiprocessing.
+#         """
+#         for process_id in range(num_processes):
+#             write_files_in_process(
+#                 process_id, writer_config, files_per_process, "single"
+#             )
 
-    ROOT_DIR = Path("./data/demo/abstract_writer_showcase")
+#     ROOT_DIR = Path("./data/demo/abstract_writer_showcase")
 
-    # Writer configuration
-    writer_config = {
-        "root_directory": ROOT_DIR,
-        "filename_format": "{experiment_type}/{name}_{extra_info}.txt",
-        "create_dirs": True,
-        "existing_file_mode": ExistingFileMode.OVERWRITE,
-        "overwrite_index": False,  # default
-        "index_filename": "wow.csv",
-    }
+#     # Writer configuration
+#     writer_config = {
+#         "root_directory": ROOT_DIR,
+#         "filename_format": "{experiment_type}/{name}_{extra_info}.txt",
+#         "create_dirs": True,
+#         "existing_file_mode": ExistingFileMode.OVERWRITE,
+#         "overwrite_index": False,  # default
+#         "index_filename": "wow.csv",
+#     }
 
-    try:
-        writer = ExampleWriter(
-            **writer_config, context={"experiment_type": "test"}
-        )
-    except:
-        logger.exception("Error creating writer.")
-    else:
-        print(writer.index_file)
-        # print(writer.context)
-        # exit(0)
+#     try:
+#         writer = ExampleWriter(
+#             **writer_config, context={"experiment_type": "test"}
+#         )
+#     except:
+#         logger.exception("Error creating writer.")
+#     else:
+#         print(writer.index_file)
+#         # print(writer.context)
+#         # exit(0)
 
-    print("Running with multiprocessing...")
-    start_time = time.time()
-    run_multiprocessing(writer_config, num_processes, files_per_process)
-    multiprocessing_duration = time.time() - start_time
+#     print("Running with multiprocessing...")
+#     start_time = time.time()
+#     run_multiprocessing(writer_config, num_processes, files_per_process)
+#     multiprocessing_duration = time.time() - start_time
 
-    print("\nRunning without multiprocessing...")
-    start_time = time.time()
-    run_single_process(writer_config, num_processes, files_per_process)
-    single_process_duration = time.time() - start_time
-    print(
-        f"Time taken with multiprocessing: {multiprocessing_duration:.2f} seconds"
-    )
-    print(
-        f"Time taken without multiprocessing: {single_process_duration:.2f} seconds"
-    )
+#     print("\nRunning without multiprocessing...")
+#     start_time = time.time()
+#     run_single_process(writer_config, num_processes, files_per_process)
+#     single_process_duration = time.time() - start_time
+#     print(
+#         f"Time taken with multiprocessing: {multiprocessing_duration:.2f} seconds"
+#     )
+#     print(
+#         f"Time taken without multiprocessing: {single_process_duration:.2f} seconds"
+#     )
 
-    # Compare times
-    time_difference = single_process_duration - multiprocessing_duration
-    print(
-        f"\nMultiprocessing was faster by {time_difference:.2f} seconds"
-        if time_difference > 0
-        else f"\nSingle process was faster by {-time_difference:.2f} seconds"
-    )
-    # Calculate and print the percentage improvement
-    improvement_percentage = (time_difference / single_process_duration) * 100
-    print(
-        f"Multiprocessing improved the performance by {improvement_percentage:.2f}%"
-    )
+#     # Compare times
+#     time_difference = single_process_duration - multiprocessing_duration
+#     print(
+#         f"\nMultiprocessing was faster by {time_difference:.2f} seconds"
+#         if time_difference > 0
+#         else f"\nSingle process was faster by {-time_difference:.2f} seconds"
+#     )
+#     # Calculate and print the percentage improvement
+#     improvement_percentage = (time_difference / single_process_duration) * 100
+#     print(
+#         f"Multiprocessing improved the performance by {improvement_percentage:.2f}%"
+# )
 
-    # Output:
-    # 4 procs and 100 files per proc
-    # Time taken with multiprocessing: 3.51 seconds
-    # Time taken without multiprocessing: 13.16 seconds
+# Output:
+# 4 procs and 100 files per proc
+# Time taken with multiprocessing: 3.51 seconds
+# Time taken without multiprocessing: 13.16 seconds
 
-    # Multiprocessing was faster by 9.65 seconds
-    # Multiprocessing improved the performance by 73.31%
+# Multiprocessing was faster by 9.65 seconds
+# Multiprocessing improved the performance by 73.31%
