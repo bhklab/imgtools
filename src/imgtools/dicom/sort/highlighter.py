@@ -26,7 +26,9 @@ class TagHighlighter(RegexHighlighter):
                             }
                     ),
             )
-    >>> console.print("%(PatientID)s/%(StudyID)s/{SomeValue}")
+    >>> console.print(
+    ...     "%(PatientID)s/%(StudyID)s/{SomeValue}"
+    ... )
     """
 
     base_style = "example."

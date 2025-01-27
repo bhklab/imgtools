@@ -1,0 +1,83 @@
+language: en-US
+tone_instructions: 'Provide constructive feedback focused on maintainability and readability.'
+early_access: false
+enable_free_tier: true
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_placeholder: '@coderabbitai summary'
+  high_level_summary_in_walkthrough: false
+  auto_title_placeholder: '@coderabbitai'
+  auto_title_instructions: 'Generate concise, informative titles for PRs following angular commit message conventions.'
+  review_status: true
+  commit_status: true
+  fail_commit_status: true  # Notify failures clearly for better debugging.
+  collapse_walkthrough: true  # Make walkthrough comments more compact.
+  changed_files_summary: true
+  sequence_diagrams: false  # Disable since it's not relevant for a Python package.
+  assess_linked_issues: true
+  related_issues: false  # Disable to reduce noise if issue tracking is not crucial.
+  related_prs: false  # Disable unless you're actively linking related PRs.
+  suggested_labels: true
+  auto_apply_labels: true  # Automatically apply suggested labels for consistency.
+  suggested_reviewers: false  # Likely unnecessary for small projects.
+  poem: false  # Remove whimsical features to keep the workflow focused.
+  labeling_instructions: []
+  path_filters:
+    - "tests/**"
+    - "src/**"
+    - "README.md"
+    - "config/**"
+  path_instructions:
+    - path: "src/**/*.py"
+      instructions: >-
+        Review the Python code for compliance with PEP 8 and PEP 257 (docstring conventions). Ensure the
+        following:
+        - Variables and functions follow meaningful naming conventions.
+        - Docstrings are present, accurate, and align with the implementation.
+        - Code is efficient and avoids redundancy while adhering to DRY principles.
+        - Consider suggestions to enhance readability and maintainability.
+        - Highlight any potential performance issues, edge cases, or logical errors.
+        - Ensure all imported libraries are used and necessary.
+
+    - path: "tests/**/*"
+      instructions: >-
+        Review the test code written with Pytest. Confirm:
+        - Tests cover all critical functionality and edge cases.
+        - Test descriptions clearly describe their purpose.
+        - Pytest best practices are followed, such as proper use of fixtures.
+        - Ensure the tests are isolated and do not have external dependencies (e.g., network calls).
+        - Verify meaningful assertions and avoidance of redundant tests.
+        - Test code adheres to PEP 8 style guidelines.
+
+    - path: "README.md"
+      instructions: >-
+        The README file should serve as the primary overview of the project. Review the following:
+        - Ensure the file is well-structured, clear, and concise.
+        - Confirm that usage instructions, installation steps, and examples are provided.
+        - Verify links and references are correct and functional.
+        - Check for grammar and spelling errors using markdownlint and languagetool.
+        - Highlight any missing critical information (e.g., contributions guide, license).
+
+    - path: "config/mypy.ini"
+      instructions: >-
+        Review the MyPy configuration file to ensure type checking is up to date
+        - there are many ignored modules, as we are refactoring the codebase
+        to improve type hints.
+        - if any PR is modifying a module which is ignored in the mypy.ini file,
+        make a comment in the PR to let the author know to update the mypy.ini file.
+
+  abort_on_close: true
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    ignore_title_keywords: []
+    labels: []
+    drafts: false
+    base_branches: []
+  finishing_touches:
+    docstrings:
+      enabled: true
+chat:
+  auto_reply: true

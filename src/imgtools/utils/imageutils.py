@@ -11,7 +11,17 @@ ImageArrayMetadata = Tuple[np.ndarray, Array3D, Array3D, Array3D]
 def array_to_image(
     array: np.ndarray,
     origin: Array3D = (0.0, 0.0, 0.0),
-    direction: Tuple[float, ...] = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0),
+    direction: Tuple[float, ...] = (
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0,
+    ),
     spacing: Array3D = (1.0, 1.0, 1.0),
     reference_image: sitk.Image = None,
 ) -> sitk.Image:
@@ -121,14 +131,18 @@ def physical_points_to_idxs(
     # - Wraps the result into a numpy array for further processing.
     # `np.vectorize` creates a vectorized function that can process arrays of points in one call.
     # The `signature="(3)->(3)"` ensures the transformation operates on 3D points, returning 3D results.
-    vectorized_transform = np.vectorize(lambda x: np.array(transform(x)), signature="(3)->(3)")
+    vectorized_transform = np.vectorize(
+        lambda x: np.array(transform(x)), signature="(3)->(3)"
+    )
 
     # Step 2: Apply the vectorized transformation to all slices of points.
     # For each 2D array `slc` in the `points` list:
     # - `vectorized_transform(slc)` applies the transformation to all points in `slc`.
     # - `[:, ::-1]` reverses the coordinate order (from (x, y, z) to (z, y, x)) to match the library's convention.
     # The result is stored as a list of numpy arrays (`t_points`), each corresponding to a transformed slice.
-    t_points: List[np.ndarray] = [vectorized_transform(slc)[:, ::-1] for slc in points]
+    t_points: List[np.ndarray] = [
+        vectorized_transform(slc)[:, ::-1] for slc in points
+    ]
 
     # Return the list of transformed points.
     return t_points
@@ -157,5 +171,7 @@ def idxs_to_physical_points(image: sitk.Image, idxs: np.ndarray) -> np.ndarray:
         if continuous
         else image.TransformIndexToPhysicalPoint
     )
-    vectorized_transform = np.vectorize(lambda x: np.array(transform(x)), signature="(3)->(3)")
+    vectorized_transform = np.vectorize(
+        lambda x: np.array(transform(x)), signature="(3)->(3)"
+    )
     return vectorized_transform(idxs)

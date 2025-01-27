@@ -23,9 +23,11 @@ extend-exclude = [
   "src/imgtools/io/writers/old_writers.py",
 ]
 
+cache-dir = ".cache/.ruff-cache"
+
 extend-include = ["src/imgtools/ops/functional.py"]
 
-line-length = 100
+line-length = 79
 
 [lint]
 
@@ -129,4 +131,4 @@ relative-imports-order = "closest-to-furthest"
 quote-style = "double"
 indent-style = "space"
 docstring-code-format = true
-docstring-code-line-length = 71
+docstring-code-line-length = 49

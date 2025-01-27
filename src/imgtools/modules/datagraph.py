@@ -55,7 +55,9 @@ class DataGraph:
         self.df_new = None
 
         if not self.edge_path.exists():
-            logger.info("Edge table not present. Forming the edge table based on the crawl data...")
+            logger.info(
+                "Edge table not present. Forming the edge table based on the crawl data..."
+            )
             self.form_graph()
         elif not update:
             logger.info("Edge table is already present. Loading the data...")
@@ -83,13 +85,17 @@ class DataGraph:
         )
 
         df_filter.loc[
-            (df_filter.reference_rs_x.isna()) & (~df_filter.reference_rs_y.isna()),
+            (df_filter.reference_rs_x.isna())
+            & (~df_filter.reference_rs_y.isna()),
             "reference_rs_x",
         ] = df_filter.loc[
-            (df_filter.reference_rs_x.isna()) & (~df_filter.reference_rs_y.isna()),
+            (df_filter.reference_rs_x.isna())
+            & (~df_filter.reference_rs_y.isna()),
             "reference_rs_y",
         ].values
-        df_filter.drop(columns=["reference_rs_y", "instance_uid_y"], inplace=True)
+        df_filter.drop(
+            columns=["reference_rs_y", "instance_uid_y"], inplace=True
+        )
         df_filter.rename(
             columns={
                 "reference_rs_x": "reference_rs",
@@ -108,9 +114,9 @@ class DataGraph:
         ]
 
         self.df_edges = self._form_edges(self.df)
-        self.df_edges.loc[self.df_edges.study_x.isna(), "study_x"] = self.df_edges.loc[
-            self.df_edges.study_x.isna(), "study"
-        ]
+        self.df_edges.loc[self.df_edges.study_x.isna(), "study_x"] = (
+            self.df_edges.loc[self.df_edges.study_x.isna(), "study"]
+        )
         self.df_edges.drop(
             columns=[
                 "study_y",
@@ -139,7 +145,9 @@ class DataGraph:
             sys.exit(1)
 
         logger.info("Generating visualizations...")
-        data_net = Network(height="100%", width="100%", bgcolor="#222222", font_color="white")
+        data_net = Network(
+            height="100%", width="100%", bgcolor="#222222", font_color="white"
+        )
 
         source_series = self.df_edges["series_y"]
         target_series = self.df_edges["series_x"]
@@ -180,7 +188,9 @@ class DataGraph:
 
         neigbour_map = data_net.get_adj_list()
         for node in data_net.nodes:
-            node["title"] += "<br>Number of connections: {}".format(len(neigbour_map[node["id"]]))
+            node["title"] += "<br>Number of connections: {}".format(
+                len(neigbour_map[node["id"]])
+            )
             node["value"] = len(neigbour_map[node["id"]])
 
         vis_path = self.edge_path.parent / "datanet.html"
@@ -214,7 +224,12 @@ class DataGraph:
                             left_on="instance_uid",
                             right_on="reference_rs",
                         ),
-                        pd.merge(struct, dose, left_on="series", right_on="reference_rs"),
+                        pd.merge(
+                            struct,
+                            dose,
+                            left_on="series",
+                            right_on="reference_rs",
+                        ),
                     ]
                 ).drop_duplicates(
                     subset=["instance_uid_x"]
@@ -222,41 +237,66 @@ class DataGraph:
 
             # FORMS RTDOSE->CT
             elif edge == 1:
-                df_combined = pd.merge(ct, dose, left_on="series", right_on="reference_ct")
+                df_combined = pd.merge(
+                    ct, dose, left_on="series", right_on="reference_ct"
+                )
 
             # FORMS RTSTRUCT->CT on ref_ct to series
             elif edge == 2:
                 df_combined = pd.concat(
                     [
-                        pd.merge(ct, struct, left_on="series", right_on="reference_ct"),
-                        pd.merge(mr, struct, left_on="series", right_on="reference_ct"),
+                        pd.merge(
+                            ct,
+                            struct,
+                            left_on="series",
+                            right_on="reference_ct",
+                        ),
+                        pd.merge(
+                            mr,
+                            struct,
+                            left_on="series",
+                            right_on="reference_ct",
+                        ),
                     ]
                 )
 
             # FORMS RTSTRUCT->PET on ref_ct to series
             elif edge == 3:
-                df_combined = pd.merge(pet, struct, left_on="series", right_on="reference_ct")
+                df_combined = pd.merge(
+                    pet, struct, left_on="series", right_on="reference_ct"
+                )
 
             # FORMS PET->CT on study
             elif edge == 4:
-                df_combined = pd.merge(ct, pet, left_on="study", right_on="study")
+                df_combined = pd.merge(
+                    ct, pet, left_on="study", right_on="study"
+                )
 
             # FORMS RTPLAN->RTDOSE on ref_pl
             elif edge == 5:
-                df_combined = pd.merge(plan, dose, left_on="instance_uid", right_on="reference_pl")
+                df_combined = pd.merge(
+                    plan, dose, left_on="instance_uid", right_on="reference_pl"
+                )
 
             # FORMS RTSTRUCT->RTPLAN on ref_rs
             elif edge == 6:
                 df_combined = pd.merge(
-                    struct, plan, left_on="instance_uid", right_on="reference_rs"
+                    struct,
+                    plan,
+                    left_on="instance_uid",
+                    right_on="reference_rs",
                 )
 
             # FORMS SEG->CT/MR
             elif edge == 7:
                 df_combined = pd.concat(
                     [
-                        pd.merge(ct, seg, left_on="series", right_on="reference_ct"),
-                        pd.merge(mr, seg, left_on="series", right_on="reference_ct"),
+                        pd.merge(
+                            ct, seg, left_on="series", right_on="reference_ct"
+                        ),
+                        pd.merge(
+                            mr, seg, left_on="series", right_on="reference_ct"
+                        ),
                     ]
                 )
 
@@ -343,14 +383,20 @@ class DataGraph:
                 edge_condition = lambda row: (
                     (
                         "0" in row["edge_type"]
-                        or ("5" in row["edge_type"] and "6" in row["edge_type"])
+                        or (
+                            "5" in row["edge_type"] and "6" in row["edge_type"]
+                        )
                     )
                     or ("1" in row["edge_type"] and "2" in row["edge_type"])
                 )
-                mod = [i for i in self.queried_modalities if i in ["CT", "MR"]][
+                mod = [
+                    i for i in self.queried_modalities if i in ["CT", "MR"]
+                ][
                     0
                 ]  # making folder_mod CT/MR agnostic <-- still needs testing
-                final_df = self.graph_query(edge_condition, [0, 1, 2], f"folder_{mod}")
+                final_df = self.graph_query(
+                    edge_condition, [0, 1, 2], f"folder_{mod}"
+                )
             elif edge_type == 1:
                 # Search for subgraphs with edges 1 or ((0 or (5 and 6)) and 2)
                 edge_condition = lambda row: (
@@ -358,12 +404,17 @@ class DataGraph:
                     or (
                         (
                             "0" in row["edge_type"]
-                            or ("5" in row["edge_type"] and "6" in row["edge_type"])
+                            or (
+                                "5" in row["edge_type"]
+                                and "6" in row["edge_type"]
+                            )
                         )
                         and "2" in row["edge_type"]
                     )
                 )
-                final_df = self.graph_query(edge_condition, [0, 1, 2], "RTSTRUCT")
+                final_df = self.graph_query(
+                    edge_condition, [0, 1, 2], "RTSTRUCT"
+                )
             elif edge_type == 2:
                 # Search for subgraphs with edges 2 or ((0 or (5 and 6)) and 1)
                 edge_condition = lambda row: (
@@ -371,15 +422,22 @@ class DataGraph:
                     or (
                         (
                             "0" in row["edge_type"]
-                            or ("5" in row["edge_type"] and "6" in row["edge_type"])
+                            or (
+                                "5" in row["edge_type"]
+                                and "6" in row["edge_type"]
+                            )
                         )
                         and "1" in row["edge_type"]
                     )
                 )
-                final_df = self.graph_query(edge_condition, [0, 1, 2], "RTDOSE")
+                final_df = self.graph_query(
+                    edge_condition, [0, 1, 2], "RTDOSE"
+                )
             elif edge_type == 7:  # SEG->CT/MR
                 # keep final_df as is
-                final_df = self.df_edges.loc[self.df_edges.edge_type == edge_type].copy()
+                final_df = self.df_edges.loc[
+                    self.df_edges.edge_type == edge_type
+                ].copy()
                 node_dest, node_origin = valid_query.split(",")
                 final_df.rename(
                     columns={
@@ -443,7 +501,9 @@ class DataGraph:
                     and (
                         "1" in row["edge_type"]
                         or "0" in row["edge_type"]
-                        or ("5" in row["edge_type"] and "6" in row["edge_type"])
+                        or (
+                            "5" in row["edge_type"] and "6" in row["edge_type"]
+                        )
                     )
                 )
                 edge_list = [0, 1, 2, 5, 6]
@@ -459,7 +519,9 @@ class DataGraph:
                     (
                         "1" in row["edge_type"]
                         or "0" in row["edge_type"]
-                        or ("5" in row["edge_type"] and "6" in row["edge_type"])
+                        or (
+                            "5" in row["edge_type"] and "6" in row["edge_type"]
+                        )
                     )
                     and "2" in row["edge_type"]
                     and "3" in row["edge_type"]
@@ -496,7 +558,10 @@ class DataGraph:
                             "2" in row["edge_type"]
                             and (
                                 "0" in row["edge_type"]
-                                or ("5" in row["edge_type"] and "6" in row["edge_type"])
+                                or (
+                                    "5" in row["edge_type"]
+                                    and "6" in row["edge_type"]
+                                )
                             )
                         )
                     )
@@ -518,7 +583,9 @@ class DataGraph:
         # This helps separate the same patient with multiple edges / connections
         # aka if multiple Studies are present
         final_df["index_chng"] = (
-            final_df.index.astype(str) + "_" + final_df["patient_ID"].astype(str)
+            final_df.index.astype(str)
+            + "_"
+            + final_df["patient_ID"].astype(str)
         )
         final_df.set_index("index_chng", inplace=True)
         final_df.rename_axis(None, inplace=True)
@@ -527,7 +594,9 @@ class DataGraph:
         for col in final_df.columns:
             if col.startswith("folder"):
                 final_df[col] = final_df[col].apply(
-                    lambda x: (self.edge_path.parent.parent / x).resolve().as_posix()
+                    lambda x: (self.edge_path.parent.parent / x)
+                    .resolve()
+                    .as_posix()
                     if isinstance(x, str)
                     else x
                 )  # input folder joined with the rel path
@@ -581,12 +650,18 @@ class DataGraph:
         ]
 
         # The components are deleted if it has less number of nodes than the passed modalities, change this so as to alter that condition
-        final_df = self._get_df(df_processed, relevant_study_id, remove_less_comp)
+        final_df = self._get_df(
+            df_processed, relevant_study_id, remove_less_comp
+        )
 
         # Removing columns
         for bad in change_df:
             # Find columns with change_df string present
-            col_ids = [cols for cols in list(final_df.columns)[1:] if bad != cols.split("_")[1]]
+            col_ids = [
+                cols
+                for cols in list(final_df.columns)[1:]
+                if bad != cols.split("_")[1]
+            ]
             final_df = final_df[[*list(final_df.columns)[:1], *col_ids]]
 
         if return_components:
@@ -603,7 +678,9 @@ class DataGraph:
             return reduce(lambda x, y: str(x) + str(y), series)
 
         self.df_edges["edge_type_str"] = self.df_edges["edge_type"].astype(str)
-        self.df_new = self.df_edges.groupby("study_x").agg({"edge_type_str": list_edges})
+        self.df_new = self.df_edges.groupby("study_x").agg(
+            {"edge_type_str": list_edges}
+        )
         self.df_new.reset_index(level=0, inplace=True)
         self.df_new["edge_type"] = self.df_new["edge_type_str"]
 
@@ -648,7 +725,9 @@ class DataGraph:
 
         # Determine the number of components
         for _, study in enumerate(rel_studyids):
-            df_temp = df_edges_processed.loc[df_edges_processed["study_x"] == study]
+            df_temp = df_edges_processed.loc[
+                df_edges_processed["study_x"] == study
+            ]
 
             ct_locs = df_temp.loc[df_temp.modality_x.isin(["CT", "MR"])]
             ct_series = ct_locs.series_x.unique()
@@ -658,14 +737,21 @@ class DataGraph:
             # Initialization - For each component intialize a dictionary with the CTs and their connections
             for ct in ct_series:
                 df_connections = ct_locs.loc[ct_locs.series_x == ct]
-                row = df_connections.iloc[0] if len(df_connections) > 0 else df_connections
+                row = (
+                    df_connections.iloc[0]
+                    if len(df_connections) > 0
+                    else df_connections
+                )
 
                 series = row.series_x
                 modality = row.modality_x
                 folder = row.folder_x
 
                 # For each component, this loop stores the CT and its connections
-                temp = {"study": study, ct: {"modality": modality, "folder": folder}}
+                temp = {
+                    "study": study,
+                    ct: {"modality": modality, "folder": folder},
+                }
 
                 # For saving the components in a format easier for the main pipeline
                 folder_save = {
@@ -688,7 +774,9 @@ class DataGraph:
                     }
 
                     # Checks if there is already existing connection
-                    key, key_series = self._check_save(folder_save, modality_y, modality)  # CT/MR
+                    key, key_series = self._check_save(
+                        folder_save, modality_y, modality
+                    )  # CT/MR
                     folder_save[key_series] = series_y
                     folder_save[key] = folder_y
 
@@ -716,10 +804,16 @@ class DataGraph:
                     }
 
                     # RTDOSE is connected via either RTstruct or/and CT, but we usually don't care, so naming it commonly
-                    modality_origin = "CT" if edge["modality_y"] == "RTDOSE" else edge["modality_x"]
+                    modality_origin = (
+                        "CT"
+                        if edge["modality_y"] == "RTDOSE"
+                        else edge["modality_x"]
+                    )
 
                     key, key_series = self._check_save(
-                        save_folder_comp[k], edge["modality_y"], modality_origin
+                        save_folder_comp[k],
+                        edge["modality_y"],
+                        modality_origin,
                     )
                     save_folder_comp[k][key_series] = edge["series_y"]
                     save_folder_comp[k][key] = edge["folder_y"]
@@ -738,7 +832,9 @@ class DataGraph:
                     # Checking if all the read modalities are present in a component
                     if desired_modalities.issubset(present_modalities):
                         remove_index.append(j)
-                save_folder_comp = [save_folder_comp[idx] for idx in remove_index]
+                save_folder_comp = [
+                    save_folder_comp[idx] for idx in remove_index
+                ]
                 comp = [comp[idx] for idx in remove_index]
 
             self.final_dict.extend(comp)
@@ -747,7 +843,9 @@ class DataGraph:
         final_df = pd.DataFrame(final_df)
         return final_df
 
-    def _check_save(self, save_dict: dict, node: str, dest: str) -> Tuple[str, str]:
+    def _check_save(
+        self, save_dict: dict, node: str, dest: str
+    ) -> Tuple[str, str]:
         key = f"folder_{node}_{dest}"
         key_series = f"series_{node}_{dest}"
         i = 1

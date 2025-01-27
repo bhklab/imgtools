@@ -250,7 +250,9 @@ def tag_exists(keyword: str) -> bool:
 
 
 @functools.lru_cache(maxsize=1024)
-def similar_tags(keyword: str, n: int = 3, threshold: float = 0.6) -> List[str]:
+def similar_tags(
+    keyword: str, n: int = 3, threshold: float = 0.6
+) -> List[str]:
     """Find similar DICOM tags for a given keyword.
 
     Useful for User Interface to suggest similar tags based on a misspelled keyword.

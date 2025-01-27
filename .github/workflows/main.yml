@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: ["*"]
 
+concurrency:
+  group: ${{ github.workflow }}_${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ###############################################################################################
   # Unit-Tests: Run unit tests using pytest
@@ -17,7 +21,7 @@ jobs:
     continue-on-error: true # dont fail the whole matrix if one fails
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-14, windows-latest] 
+        os: [ubuntu-latest, macos-latest, macos-13, windows-latest] 
         env: ["py310", "py311", "py312"]
 
     steps:
@@ -29,7 +33,6 @@ jobs:
           environments: ${{ matrix.env }}
           pixi-version: v0.40.0
           cache: true
-          locked: false # wont be the same because of the tag
 
       - name: Run pytest
         env:
@@ -50,7 +53,7 @@ jobs:
         uses: test-summary/action@v2
         with: 
           paths: .cache/test-results/**/*.xml
-          show: all
+          show: "fail,skip"
         if: always()
 
   ################################################################################################

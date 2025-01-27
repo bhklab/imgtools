@@ -75,7 +75,9 @@ class LoggingManager:
 
     @property
     def env_level(self) -> str:
-        return os.environ.get(f"{self.name}_LOG_LEVEL".upper(), DEFAULT_LOG_LEVEL).upper()
+        return os.environ.get(
+            f"{self.name}_LOG_LEVEL".upper(), DEFAULT_LOG_LEVEL
+        ).upper()
 
     @property
     def base_logging_config(self) -> Dict:
@@ -166,7 +168,9 @@ class LoggingManager:
         """
         return structlog.get_logger(self.name)
 
-    def configure_logging(self, level: str = DEFAULT_LOG_LEVEL) -> structlog.stdlib.BoundLogger:
+    def configure_logging(
+        self, level: str = DEFAULT_LOG_LEVEL
+    ) -> structlog.stdlib.BoundLogger:
         """
         Dynamically adjust logging settings.
 
@@ -199,6 +203,8 @@ class LoggingManager:
 
         # Log the level change
         if old_level != self.level:
-            logger.info("Log level changed", old_level=old_level, new_level=self.level)
+            logger.info(
+                "Log level changed", old_level=old_level, new_level=self.level
+            )
 
         return logger

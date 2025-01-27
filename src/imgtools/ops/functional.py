@@ -74,13 +74,17 @@ def resample(
     original_size = np.array(image.GetSize())
 
     if isinstance(spacing, (float, int)):
-        new_spacing = np.repeat(spacing, len(original_spacing)).astype(np.float64)
+        new_spacing = np.repeat(spacing, len(original_spacing)).astype(
+            np.float64
+        )
     else:
         spacing = np.asarray(spacing)
         new_spacing = np.where(spacing == 0, original_spacing, spacing)
 
     if output_size is None:
-        new_size = np.round(original_size * original_spacing / new_spacing, decimals=0).astype(int)
+        new_size = np.round(
+            original_size * original_spacing / new_spacing, decimals=0
+        ).astype(int)
     else:
         new_size = np.asarray(output_size)
 
@@ -98,7 +102,9 @@ def resample(
         if not anti_alias_sigma:
             # sigma computation adapted from scikit-image
             # https://github.com/scikit-image/scikit-image/blob/master/skimage/transform/_warps.py
-            anti_alias_sigma = np.maximum(1e-11, (original_spacing / new_spacing - 1) / 2)
+            anti_alias_sigma = np.maximum(
+                1e-11, (original_spacing / new_spacing - 1) / 2
+            )
         sigma = np.where(downsample, anti_alias_sigma, 1e-11)
         image = sitk.SmoothingRecursiveGaussian(image, sigma)
 
@@ -279,12 +285,17 @@ def rotate(
             (0.0, 0.0, 0.0),  # no translation
         )
     return resample(
-        image, spacing=image.GetSpacing(), interpolation=interpolation, transform=rotation
+        image,
+        spacing=image.GetSpacing(),
+        interpolation=interpolation,
+        transform=rotation,
     )
 
 
 def crop(
-    image: sitk.Image, crop_centre: Sequence[float], size: Union[int, Sequence[int], np.ndarray]
+    image: sitk.Image,
+    crop_centre: Sequence[float],
+    size: Union[int, Sequence[int], np.ndarray],
 ) -> sitk.Image:
     """Crop an image to the desired size around a given centre.
 
@@ -314,16 +325,24 @@ def crop(
     crop_centre = np.asarray(crop_centre, dtype=np.float64)
     original_size = np.asarray(image.GetSize())
 
-    size = np.array([size for _ in image.GetSize()]) if isinstance(size, int) else np.asarray(size)
+    size = (
+        np.array([size for _ in image.GetSize()])
+        if isinstance(size, int)
+        else np.asarray(size)
+    )
 
     if (crop_centre < 0).any() or (crop_centre > original_size).any():
         msg = f"Crop centre outside image boundaries. Image size = {original_size}, crop centre = {crop_centre}"
         raise ValueError(msg)
 
-    min_coords = np.clip(np.floor(crop_centre - size / 2).astype(np.int64), 0, original_size)
+    min_coords = np.clip(
+        np.floor(crop_centre - size / 2).astype(np.int64), 0, original_size
+    )
     min_coords = np.where(size == 0, 0, min_coords)
 
-    max_coords = np.clip(np.floor(crop_centre + size / 2).astype(np.int64), 0, original_size)
+    max_coords = np.clip(
+        np.floor(crop_centre + size / 2).astype(np.int64), 0, original_size
+    )
     max_coords = np.where(size == 0, original_size, max_coords)
 
     min_x, min_y, min_z = min_coords
@@ -392,7 +411,9 @@ def bounding_box(mask: sitk.Image, label: int = 1) -> Tuple[Tuple, Tuple]:
     return location, size
 
 
-def centroid(mask: sitk.Image, label: int = 1, world_coordinates: bool = False) -> tuple:
+def centroid(
+    mask: sitk.Image, label: int = 1, world_coordinates: bool = False
+) -> tuple:
     """Find the centroid of a labelled region specified by a segmentation mask.
 
     Parameters
@@ -478,7 +499,9 @@ def crop_to_mask_bounding_box(
     return image, mask, crop_centre
 
 
-def clip_intensity(image: sitk.Image, lower: float, upper: float) -> sitk.Image:
+def clip_intensity(
+    image: sitk.Image, lower: float, upper: float
+) -> sitk.Image:
     """Clip image grey level intensities to specified range.
 
     The grey level intensities in the resulting image will fall in the range
@@ -505,7 +528,9 @@ def clip_intensity(image: sitk.Image, lower: float, upper: float) -> sitk.Image:
     return sitk.Clamp(image, image.GetPixelID(), lower, upper)
 
 
-def window_intensity(image: sitk.Image, window: float, level: float) -> sitk.Image:
+def window_intensity(
+    image: sitk.Image, window: float, level: float
+) -> sitk.Image:
     """Restrict image grey level intensities to a given window and level.
 
     The grey level intensities in the resulting image will fall in the range
@@ -532,7 +557,9 @@ def window_intensity(image: sitk.Image, window: float, level: float) -> sitk.Ima
     return clip_intensity(image, lower, upper)
 
 
-def image_statistics(image: sitk.Image, mask: Optional[sitk.Image] = None, label: int = 1) -> float:
+def image_statistics(
+    image: sitk.Image, mask: Optional[sitk.Image] = None, label: int = 1
+) -> float:
     """Compute the intensity statistics of an image.
 
     Returns the minimum, maximum, sum, mean, variance and standard deviation
@@ -562,7 +589,15 @@ def image_statistics(image: sitk.Image, mask: Optional[sitk.Image] = None, label
     """
 
     ImageStatistics = namedtuple(
-        "ImageStatistics", ["minimum", "maximum", "sum", "mean", "variance", "standard_deviation"]
+        "ImageStatistics",
+        [
+            "minimum",
+            "maximum",
+            "sum",
+            "mean",
+            "variance",
+            "standard_deviation",
+        ],
     )
 
     if mask is not None:
@@ -647,7 +682,9 @@ def standard_scale(
     return (image - rescale_mean) / rescale_std
 
 
-def min_max_scale(image: sitk.Image, minimum: float = 0.0, maximum: float = 1.0) -> sitk.Image:
+def min_max_scale(
+    image: sitk.Image, minimum: float = 0.0, maximum: float = 1.0
+) -> sitk.Image:
     """Rescale image intensities to a given minimum and maximum.
 
     Applies a linear transformation to image intensities such that the minimum

@@ -85,13 +85,17 @@ class FileAction(Enum):
         source_path.rename(resolved_path)
 
     def copy_file(self, source_path: Path, resolved_path: Path) -> None:
-        shutil.copy2(source_path, resolved_path)  # shutil.copy2 preserves metadata
+        shutil.copy2(
+            source_path, resolved_path
+        )  # shutil.copy2 preserves metadata
 
     def create_symlink(self, source_path: Path, resolved_path: Path) -> None:
         try:
             real_source = source_path.resolve(strict=True)
         except (FileNotFoundError, RuntimeError, OSError) as e:
-            errmsg = f"Invalid source path {source_path}: possible symlink loop"
+            errmsg = (
+                f"Invalid source path {source_path}: possible symlink loop"
+            )
             raise RuntimeError(errmsg) from e
         resolved_path.symlink_to(real_source, target_is_directory=False)
 
@@ -99,7 +103,9 @@ class FileAction(Enum):
         try:
             resolved_path.hardlink_to(source_path)
         except OSError as e:
-            errmsg = f"Failed to create hard link: {source_path} to {resolved_path}"
+            errmsg = (
+                f"Failed to create hard link: {source_path} to {resolved_path}"
+            )
             raise RuntimeError(errmsg) from e
 
     @classmethod
@@ -120,7 +126,10 @@ class FileAction(Enum):
 
 
 def handle_file(
-    source_path: Path, resolved_path: Path, action: FileAction | str, overwrite: bool = False
+    source_path: Path,
+    resolved_path: Path,
+    action: FileAction | str,
+    overwrite: bool = False,
 ) -> None:
     if not isinstance(action, FileAction):
         action = FileAction.validate(action)

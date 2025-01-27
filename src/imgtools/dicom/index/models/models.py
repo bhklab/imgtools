@@ -29,7 +29,8 @@ def repr_mixin(cls) -> type:  # type: ignore  # noqa: ANN001
         attrs = {
             key: (len(value) if isinstance(value, list) else value)
             for key, value in vars(self).items()
-            if not key.startswith("_") and isinstance(value, (str, int, float, list))
+            if not key.startswith("_")
+            and isinstance(value, (str, int, float, list))
         }
         class_name = self.__class__.__name__
         fields = ",\n  ".join(f"{key}={value}" for key, value in attrs.items())
@@ -52,7 +53,9 @@ class Patient:
     __table__ = Table(
         "patients",
         mapper_registry.metadata,
-        Column("PatientID", String, primary_key=True, index=True),  # PRIMARY KEY
+        Column(
+            "PatientID", String, primary_key=True, index=True
+        ),  # PRIMARY KEY
     )
 
     # Metadata from DICOM
@@ -120,7 +123,9 @@ class Patient:
         List[str]
                         The list of modalities.
         """
-        modalities = [modality for study in self.studies for modality in study.modalities]
+        modalities = [
+            modality for study in self.studies for modality in study.modalities
+        ]
         return dict(Counter(modalities))
 
     @property
@@ -145,7 +150,9 @@ class Patient:
         List[Series]
                         The RTSTRUCT series.
         """
-        return [series for series in self.series if series.Modality == "RTSTRUCT"]
+        return [
+            series for series in self.series if series.Modality == "RTSTRUCT"
+        ]
 
 
 ####################################################################################################
@@ -161,8 +168,15 @@ class Study:
     __table__ = Table(
         "studies",
         mapper_registry.metadata,
-        Column("StudyInstanceUID", String, primary_key=True, index=True),  # PRIMARY KEY
-        Column("PatientID", String, ForeignKey("patients.PatientID"), nullable=False),
+        Column(
+            "StudyInstanceUID", String, primary_key=True, index=True
+        ),  # PRIMARY KEY
+        Column(
+            "PatientID",
+            String,
+            ForeignKey("patients.PatientID"),
+            nullable=False,
+        ),
     )
 
     # Metadata from DICOM
@@ -251,8 +265,15 @@ class Series:
     __table__ = Table(
         "series",
         mapper_registry.metadata,
-        Column("SeriesInstanceUID", String, primary_key=True, index=True),  # PRIMARY KEY
-        Column("StudyInstanceUID", String, ForeignKey("studies.StudyInstanceUID"), nullable=False),
+        Column(
+            "SeriesInstanceUID", String, primary_key=True, index=True
+        ),  # PRIMARY KEY
+        Column(
+            "StudyInstanceUID",
+            String,
+            ForeignKey("studies.StudyInstanceUID"),
+            nullable=False,
+        ),
         Column("Modality", String, nullable=False),
         Column("_RTSTRUCT", JSON, nullable=True),
         Column("_MR", JSON, nullable=True),
@@ -277,7 +298,9 @@ class Series:
     }
 
     @classmethod
-    def from_metadata(cls, metadata: Dict[str, str], file_path: Path) -> Series:
+    def from_metadata(
+        cls, metadata: Dict[str, str], file_path: Path
+    ) -> Series:
         base_cls = cls(
             SeriesInstanceUID=metadata["SeriesInstanceUID"],
             StudyInstanceUID=metadata["StudyInstanceUID"],
@@ -289,7 +312,9 @@ class Series:
                 try:
                     ds = dcmread(file_path, stop_before_pixels=True)
                     logger.info(f"Reading RTSTRUCT file: {file_path}")
-                    roi_names = [roi.ROIName for roi in ds.StructureSetROISequence]
+                    roi_names = [
+                        roi.ROIName for roi in ds.StructureSetROISequence
+                    ]
                     rfrs = ds.ReferencedFrameOfReferenceSequence[0]
                     ref_series_seq = (
                         rfrs.RTReferencedStudySequence[0]
@@ -303,7 +328,10 @@ class Series:
                         "FrameOfReferenceUID": frame_of_reference,
                     }
                 except Exception as e:
-                    logger.exception(f"Error reading RTSTRUCT file: {file_path}", error=str(e))
+                    logger.exception(
+                        f"Error reading RTSTRUCT file: {file_path}",
+                        error=str(e),
+                    )
                     raise e
             case "MR":
                 try:
@@ -320,7 +348,9 @@ class Series:
 
                     base_cls._MR = {k: str(v) for k, v in _mr.items()}
                 except Exception as e:
-                    logger.exception(f"Error reading MR file: {file_path}", error=str(e))
+                    logger.exception(
+                        f"Error reading MR file: {file_path}", error=str(e)
+                    )
                     raise e
             case _:
                 pass
@@ -333,7 +363,11 @@ class Series:
 
     @property
     def RTReferencedSeriesUID(self) -> Optional[str]:  # noqa: N802
-        return self._RTSTRUCT.get("RTReferencedSeriesUID", None) if self._RTSTRUCT else None
+        return (
+            self._RTSTRUCT.get("RTReferencedSeriesUID", None)
+            if self._RTSTRUCT
+            else None
+        )
 
     @property
     def ROINames(self) -> Optional[str]:  # noqa: N802
@@ -353,9 +387,16 @@ class Image:
     __table__ = Table(
         "images",
         mapper_registry.metadata,
-        Column("FilePath", String, primary_key=True, index=True),  # PRIMARY KEY
+        Column(
+            "FilePath", String, primary_key=True, index=True
+        ),  # PRIMARY KEY
         Column("SOPInstanceUID", String, nullable=False),
-        Column("SeriesInstanceUID", String, ForeignKey("series.SeriesInstanceUID"), nullable=False),
+        Column(
+            "SeriesInstanceUID",
+            String,
+            ForeignKey("series.SeriesInstanceUID"),
+            nullable=False,
+        ),
     )
 
     # Metadata from DICOM

@@ -38,25 +38,39 @@ def _extract_metadata(file_path: Path, tags: List[str]) -> Dict[str, str]:
 
 
 class DICOMInsertMixin:
-    def _insert_patient(self, session: Session, metadata: Dict[str, str]) -> Patient:
-        patient = session.query(Patient).filter_by(PatientID=metadata["PatientID"]).first()
+    def _insert_patient(
+        self, session: Session, metadata: Dict[str, str]
+    ) -> Patient:
+        patient = (
+            session.query(Patient)
+            .filter_by(PatientID=metadata["PatientID"])
+            .first()
+        )
         if not patient:
             patient = Patient.from_metadata(metadata)
             session.add(patient)
         return patient
 
-    def _insert_study(self, session: Session, metadata: Dict[str, str]) -> Study:
+    def _insert_study(
+        self, session: Session, metadata: Dict[str, str]
+    ) -> Study:
         study = (
-            session.query(Study).filter_by(StudyInstanceUID=metadata["StudyInstanceUID"]).first()
+            session.query(Study)
+            .filter_by(StudyInstanceUID=metadata["StudyInstanceUID"])
+            .first()
         )
         if not study:
             study = Study.from_metadata(metadata)
             session.add(study)
         return study
 
-    def _insert_series(self, session: Session, metadata: Dict[str, str], file_path: Path) -> Series:
+    def _insert_series(
+        self, session: Session, metadata: Dict[str, str], file_path: Path
+    ) -> Series:
         series = (
-            session.query(Series).filter_by(SeriesInstanceUID=metadata["SeriesInstanceUID"]).first()
+            session.query(Series)
+            .filter_by(SeriesInstanceUID=metadata["SeriesInstanceUID"])
+            .first()
         )
         if series:
             return series
@@ -64,8 +78,14 @@ class DICOMInsertMixin:
         session.add(series)
         return series
 
-    def _insert_image(self, session: Session, metadata: Dict[str, str], file_path: Path) -> Image:
-        file = session.query(Image).filter_by(SOPInstanceUID=metadata["SOPInstanceUID"]).first()
+    def _insert_image(
+        self, session: Session, metadata: Dict[str, str], file_path: Path
+    ) -> Image:
+        file = (
+            session.query(Image)
+            .filter_by(SOPInstanceUID=metadata["SOPInstanceUID"])
+            .first()
+        )
         if not file:
             file = Image.from_metadata(metadata, file_path)
             session.add(file)
@@ -106,7 +126,10 @@ class DICOMIndexer(DICOMInsertMixin):
                         A list of file paths.
         """
         with self.db_handler.session() as session:
-            return [Path(file.FilePath) for file in session.query(Image.FilePath).all()]
+            return [
+                Path(file.FilePath)
+                for file in session.query(Image.FilePath).all()
+            ]
 
     def build_index_from_files(self, files: List[Path]) -> None:
         """
@@ -120,7 +143,9 @@ class DICOMIndexer(DICOMInsertMixin):
         existing_files = self.existing_files
         remaining_files = list(set(files) - set(existing_files))
         logger.debug(f"{len(existing_files)} files already indexed.")
-        logger.debug(f"{len(remaining_files)}/{len(files)} files left to index.")
+        logger.debug(
+            f"{len(remaining_files)}/{len(files)} files left to index."
+        )
 
         if not remaining_files:
             logger.info("All files are already indexed.")
@@ -147,7 +172,9 @@ class DICOMIndexer(DICOMInsertMixin):
             logger.exception(f"Error: {e}")
             raise e
         finally:
-            logger.info(f"Indexing complete in {time.time() - start:.2f} seconds.")
+            logger.info(
+                f"Indexing complete in {time.time() - start:.2f} seconds."
+            )
 
 
 T = TypeVar("T")  # Generic type for table models

@@ -200,7 +200,11 @@ def read_tags(
     {'NonexistentTag': 'UNKNOWN'}
     """
     assert isinstance(file, Path)
-    assert isinstance(tags, list) and all(isinstance(tag, str) for tag in tags) and tags is not None
+    assert (
+        isinstance(tags, list)
+        and all(isinstance(tag, str) for tag in tags)
+        and tags is not None
+    )
 
     try:
         dicom = dcmread(file, specific_tags=tags, stop_before_pixels=True)

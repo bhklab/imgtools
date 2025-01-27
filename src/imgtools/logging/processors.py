@@ -19,7 +19,9 @@ class PathPrettifier:
     def __init__(self, base_dir: Optional[Path] = None) -> None:
         self.base_dir = base_dir or Path.cwd()
 
-    def __call__(self, _: object, __: object, event_dict: EventDict) -> EventDict:
+    def __call__(
+        self, _: object, __: object, event_dict: EventDict
+    ) -> EventDict:
         """
         Process the event dictionary to convert Path objects to relative paths.
 
@@ -48,7 +50,9 @@ class JSONFormatter:
     A processor to format the event dictionary for JSON output.
     """
 
-    def __call__(self, _: object, __: object, event_dict: EventDict) -> EventDict:
+    def __call__(
+        self, _: object, __: object, event_dict: EventDict
+    ) -> EventDict:
         """
         Process the event dictionary to separate core fields from extra fields.
 
@@ -65,7 +69,11 @@ class JSONFormatter:
             raise TypeError(msg)
 
         core_fields = {"event", "level", "timestamp", "call", "exception"}
-        extra_fields = {key: value for key, value in event_dict.items() if key not in core_fields}
+        extra_fields = {
+            key: value
+            for key, value in event_dict.items()
+            if key not in core_fields
+        }
         for key in extra_fields:
             del event_dict[key]
 
@@ -84,7 +92,9 @@ class CallPrettifier:
     def __init__(self, concise: bool = True) -> None:
         self.concise = concise
 
-    def __call__(self, _: object, __: object, event_dict: EventDict) -> EventDict:
+    def __call__(
+        self, _: object, __: object, event_dict: EventDict
+    ) -> EventDict:
         """
         Process the event dictionary to format call information.
 
@@ -107,7 +117,9 @@ class CallPrettifier:
         }
 
         event_dict["call"] = (
-            f"{call['module']}.{call['func_name']}:{call['lineno']}" if self.concise else call
+            f"{call['module']}.{call['func_name']}:{call['lineno']}"
+            if self.concise
+            else call
         )
         return event_dict
 
@@ -124,7 +136,9 @@ class ESTTimeStamper:
         self.fmt = fmt
         self.est = pytz.timezone("US/Eastern")
 
-    def __call__(self, _: object, __: object, event_dict: EventDict) -> EventDict:
+    def __call__(
+        self, _: object, __: object, event_dict: EventDict
+    ) -> EventDict:
         """
         Process the event dictionary to add a timestamp in Eastern Standard Time.
 

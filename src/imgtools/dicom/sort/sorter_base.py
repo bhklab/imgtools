@@ -84,7 +84,9 @@ def resolve_path(
     Tuple[Path, Path]
         The source path and resolved path.
     """
-    tags: Dict[str, str] = read_tags(path, list(keys), truncate=truncate, sanitize=sanitize)
+    tags: Dict[str, str] = read_tags(
+        path, list(keys), truncate=truncate, sanitize=sanitize
+    )
     resolved_path = Path(format_str % tags, path.name)
     if check_existing and not resolved_path.exists():
         resolved_path = resolved_path.resolve()
@@ -157,7 +159,9 @@ class SorterBase(ABC):
             raise SorterBaseError(errmsg) from e
 
         try:
-            self._parser = PatternParser(self._target_pattern, self._pattern_parser)
+            self._parser = PatternParser(
+                self._target_pattern, self._pattern_parser
+            )
             self._format, parsed_keys = self._parser.parse()
             self._keys = set(parsed_keys)
         except Exception as e:
@@ -201,7 +205,9 @@ class SorterBase(ABC):
         """
         pass
 
-    def _generate_tree_structure(self, path: str, tree: Tree, depth: int = 0) -> None:
+    def _generate_tree_structure(
+        self, path: str, tree: Tree, depth: int = 0
+    ) -> None:
         """Generate a tree structure from the pattern path."""
         max_depth = 10
         if depth > max_depth:  # Prevent infinite recursion
@@ -232,7 +238,9 @@ class SorterBase(ABC):
         Tree
             The initialized tree object.
         """
-        tree = Tree(f":file_folder: {base_dir}/", guide_style="bold bright_blue")
+        tree = Tree(
+            f":file_folder: {base_dir}/", guide_style="bold bright_blue"
+        )
         return tree
 
     @property

@@ -44,7 +44,9 @@ def os_max_path_length() -> int:
         except (AttributeError, ValueError, OSError):
             return 1024  # Safe fallback for macOS
     else:
-        errmsg = "Unknown operating system. Unable to determine max path length."
+        errmsg = (
+            "Unknown operating system. Unable to determine max path length."
+        )
         raise ValueError(errmsg)
 
 
@@ -80,9 +82,12 @@ def os_max_filename_length() -> int:
 
 
 # Example usage
+
 if __name__ == "__main__":
     try:
-        print(f"The maximum file path length on this system is: {os_max_path_length()} characters")  # noqa: T201
+        print(  # noqa: T201
+            f"The maximum file path length on this system is: {os_max_path_length()} characters"
+        )  # noqa: T201
     except ValueError as e:
         print(f"Error determining max path length: {e}")  # noqa: T201
 

@@ -8578,7 +8578,7 @@ packages:
 - pypi: .
   name: med-imagetools
   version: 1.16.0
-  sha256: f4395bd70de3b55fd61017e95f9f3ca895bfbbba31e26936b1b8802a4a968e33
+  sha256: d24c2c8701c459755d42b9477b845a014e3ba3dc412671bd489e8274f8d2e1d8
   requires_dist:
   - h5py>=3.11.0,<4
   - joblib>=1.4.2,<2

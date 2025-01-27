@@ -4,7 +4,11 @@ import click
 
 from imgtools.cli import set_log_verbosity
 from imgtools.dicom import find_dicoms
-from imgtools.dicom.index import DatabaseHandler, DICOMDatabaseInterface, DICOMIndexer
+from imgtools.dicom.index import (
+    DatabaseHandler,
+    DICOMDatabaseInterface,
+    DICOMIndexer,
+)
 from imgtools.logging import logger
 
 DEFAULT_DB_DIR = Path(".imgtools")
@@ -42,7 +46,11 @@ DEFAULT_DB_NAME = "imgtools.db"
     help="Number of files to index, 0 for all",
 )
 def index(
-    directory: Path, update_db: bool = False, verbose: int = 0, quiet: bool = False, limit: int = 0
+    directory: Path,
+    update_db: bool = False,
+    verbose: int = 0,
+    quiet: bool = False,
+    limit: int = 0,
 ) -> None:
     """Index DICOM files in a directory.
 

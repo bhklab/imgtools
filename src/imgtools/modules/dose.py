@@ -16,7 +16,10 @@ T = TypeVar("T")
 
 class Dose(sitk.Image):
     def __init__(
-        self, img_dose: sitk.Image, df: Dataset, metadata: Optional[Dict[str, T]] = None
+        self,
+        img_dose: sitk.Image,
+        df: Dataset,
+        metadata: Optional[Dict[str, T]] = None,
     ) -> None:
         super().__init__(img_dose)
         self.img_dose = img_dose
@@ -59,7 +62,9 @@ class Dose(sitk.Image):
         )  # , interpolator=sitk.sitkNearestNeighbor)
         return resampled_dose
 
-    def show_overlay(self, ct_scan: sitk.Image, slice_number: int) -> plt.Figure:
+    def show_overlay(
+        self, ct_scan: sitk.Image, slice_number: int
+    ) -> plt.Figure:
         """
         For a given slice number, the function resamples RTDOSE scan and overlays on top of the CT scan and returns the figure of the
         overlay
@@ -79,7 +84,9 @@ class Dose(sitk.Image):
 
     def get_metadata(
         self,
-    ) -> Dict[Union[str, int], Union[str, float, Dict[str, Union[str, float, list]]]]:
+    ) -> Dict[
+        Union[str, int], Union[str, float, Dict[str, Union[str, float, list]]]
+    ]:
         """
         Forms Dose-Value Histogram (DVH) from DICOM metadata
         {

@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import aiohttp
-from rich import print
+from rich import print  # noqa
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -26,6 +26,7 @@ console = Console()
 
 try:
     from github import Github  # type: ignore # noqa
+    from github.Repository import Repository  # type: ignore # noqa
 except ImportError as e:
     raise ImportError(
         "PyGithub is required for the test data feature of med-imagetools. "
@@ -106,13 +107,13 @@ class GitHubReleaseManager:
 
     repo_name: str
     github: Github
-    repo: Github.Repository
-    latest_release: GitHubRelease | None = None
+    repo: Repository
+    latest_release: GitHubRelease
 
     # github parameters
     timeout = 300
 
-    def __init__(self, repo_name: str, token: str | None = None):
+    def __init__(self, repo_name: str, token: str | None = None) -> None:
         self.repo_name = repo_name
         token = token or os.environ.get("GITHUB_TOKEN")
         if token:
@@ -123,7 +124,7 @@ class GitHubReleaseManager:
 
         self.repo = self.github.get_repo(repo_name)
 
-    def get_release(self, tag: Optional[str] = "latest") -> GitHubRelease:
+    def get_release(self, tag: str = "latest") -> GitHubRelease:
         """
         Fetches the details of a specific release or the latest release if no tag is provided.
 
@@ -170,7 +171,10 @@ class GitHubReleaseManager:
 
 
 async def download_dataset(
-    download_link: str, file_path: Path, progress: Progress, timeout_seconds: int = 3600
+    download_link: str,
+    file_path: Path,
+    progress: Progress,
+    timeout_seconds: int = 3600,
 ) -> Path:
     """
     Download a single dataset.
@@ -196,7 +200,9 @@ async def download_dataset(
         try:
             async with session.get(download_link) as response:
                 total = int(response.headers.get("content-length", 0))
-                task = progress.add_task(f"[cyan]Downloading {file_path.name}...", total=total)
+                task = progress.add_task(
+                    f"[cyan]Downloading {file_path.name}...", total=total
+                )
                 with file_path.open("wb") as f:
                     async for chunk in response.content.iter_chunked(8192):
                         f.write(chunk)
@@ -218,7 +224,7 @@ class MedImageTestData(GitHubReleaseManager):
     downloaded_paths: List[Path] = field(default_factory=list, init=False)
     progress: Progress = field(default_factory=Progress, init=False)
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("bhklab/med-image_test-data")
         self.downloaded_paths = []
         self.get_latest_release()
@@ -267,7 +273,10 @@ class MedImageTestData(GitHubReleaseManager):
         return await download_dataset(asset.url, filepath, progress)
 
     async def _download(
-        self, dest: Path, assets: List[GitHubReleaseAsset], progress: Progress
+        self,
+        dest: Path,
+        assets: List[GitHubReleaseAsset] | None,
+        progress: Progress,
     ) -> List[Path]:
         """
         Download specified assets or all assets if none are specified.
@@ -290,7 +299,10 @@ class MedImageTestData(GitHubReleaseManager):
             assets = self.latest_release.assets
 
         async with aiohttp.ClientSession() as session:
-            tasks = [self._download_asset(session, asset, dest, progress) for asset in assets]
+            tasks = [
+                self._download_asset(session, asset, dest, progress)
+                for asset in assets
+            ]
             self.downloaded_paths = await asyncio.gather(*tasks)
         return self.downloaded_paths
 
@@ -325,7 +337,9 @@ class MedImageTestData(GitHubReleaseManager):
                 )
             )
 
-    def download(self, dest: Path, assets: Optional[List[GitHubReleaseAsset]] = None) -> List[Path]:
+    def download(
+        self, dest: Path, assets: Optional[List[GitHubReleaseAsset]] = None
+    ) -> List[Path]:
         """
         Download specified assets synchronously.
 
@@ -342,7 +356,6 @@ class MedImageTestData(GitHubReleaseManager):
             List of paths to the downloaded files.
         """
         print(f"Downloading assets to {dest}...")
-        print(f"Assets: {', '.join(asset.name for asset in assets)}")
         with Progress(
             TextColumn("[bold blue]{task.description}", justify="right"),
             BarColumn(),
@@ -367,11 +380,15 @@ class MedImageTestData(GitHubReleaseManager):
             if tarfile.is_tarfile(path):
                 with tarfile.open(path, "r:*") as archive:
                     archive.extractall(dest, filter="data")
-                    extracted_paths.extend([dest / member.name for member in archive.getmembers()])
+                    extracted_paths.extend(
+                        [dest / member.name for member in archive.getmembers()]
+                    )
             elif zipfile.is_zipfile(path):
                 with zipfile.ZipFile(path, "r") as archive:
                     archive.extractall(dest)
-                    extracted_paths.extend([dest / name for name in archive.namelist()])
+                    extracted_paths.extend(
+                        [dest / name for name in archive.namelist()]
+                    )
             else:
                 print(f"Unsupported archive format: {path.name}")
         return extracted_paths
