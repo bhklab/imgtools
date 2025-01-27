@@ -26,15 +26,17 @@ class ExistingFileMode(Enum):
     Attributes
     ----------
     OVERWRITE : auto()
-        Overwrite the existing file. Logs as debug and continues with the operation.
+        Overwrite the existing file. Logs as debug and continues with the
+        operation.
     FAIL : auto()
-        Fail the operation if the file exists. Logs as error and raises a FileExistsError.
+        Fail the operation if the file exists. Logs as error and raises a
+        FileExistsError.
     SKIP : auto()
-        Skip the operation if the file exists.
-        Meant to be used for previewing the path before any expensive computation.
-        `preview_path()` will return None if the file exists.
-        `resolve_path()` will still return the path even if the file exists.
-        The writer's `save` method should handle the file existence if set to SKIP.
+        Skip the operation if the file exists. Meant to be used for previewing
+        the path before any expensive computation. `preview_path()` will return
+        None if the file exists. `resolve_path()` will still return the path
+        even if the file exists. The writer's `save` method should handle the
+        file existence if set to SKIP.
     """
 
     OVERWRITE = auto()
@@ -44,9 +46,12 @@ class ExistingFileMode(Enum):
 
 @dataclass
 class AbstractBaseWriter(ABC):
-    """Abstract base class for managing file writing with customizable paths and filenames.
+    """
+    Abstract base class for managing file writing with customizable paths and
+    filenames.
 
-    This class provides a template for writing files with a flexible directory structure.
+    This class provides a template for writing files with a flexible directory
+    structure.
     """
 
     # Any subclass has to be initialized with a root directory and a filename format
@@ -126,7 +131,10 @@ class AbstractBaseWriter(ABC):
     _checked_directories: set[str] = field(default_factory=set, init=False)
 
     def __post_init__(self) -> None:
-        """Initialize the writer with the given root directory and filename format."""
+        """
+        Initialize the writer with the given root directory and filename
+        format.
+        """
         self.root_directory = Path(self.root_directory)
         if self.create_dirs:
             self._ensure_directory_exists(self.root_directory)
@@ -151,12 +159,14 @@ class AbstractBaseWriter(ABC):
 
     @abstractmethod
     def save(self, *args: Any, **kwargs: object) -> Path:  # noqa
-        """Abstract method for writing data. Must be implemented by subclasses.
+        """
+        Abstract method for writing data. Must be implemented by subclasses.
 
-        Can use resolve_path() or resolve_and_validate_path() to get the output path.
+        Can use resolve_path() or resolve_and_validate_path() to get the output
+        path.
 
-        For efficiency, use self.context to access the context variables, updating
-        them with the kwargs passed from the save method.
+        For efficiency, use self.context to access the context variables,
+        updating them with the kwargs passed from the save method.
 
         This will help simplify repeated saves with similar context variables.
         """
@@ -164,33 +174,45 @@ class AbstractBaseWriter(ABC):
 
     @property
     def index_file(self) -> Path:
-        """Get the path to the index CSV file."""
+        """
+        Get the path to the index CSV file.
+        """
         if (index_path := Path(self._index_filename)).is_absolute():
             return index_path
         return self.root_directory / self._index_filename
 
     @property
     def _index_filename(self) -> str:
-        """Get the path to the index CSV file."""
+        """
+        Get the path to the index CSV file.
+        """
         if self.index_filename is None:
             root_dir_basename = self.root_directory.name
             return f"{root_dir_basename}_index.csv"
         return self.index_filename
 
     def _get_index_lock(self) -> Path:
-        """Get the path to the lock file for the index CSV."""
+        """
+        Get the path to the lock file for the index CSV.
+        """
         return Path(f"{self.index_file}.lock")
 
     def set_context(self, **kwargs: object) -> None:
-        """Set the context for the writer."""
+        """
+        Set the context for the writer.
+        """
         self.context.update(kwargs)
 
     def clear_context(self) -> None:
-        """Clear the context for the writer."""
+        """
+        Clear the context for the writer.
+        """
         self.context.clear()
 
     def _generate_path(self, **kwargs: object) -> Path:
-        """Helper for resolving paths with the given context."""
+        """
+        Helper for resolving paths with the given context.
+        """
         save_context = {**self._generate_datetime_strings(), **self.context, **kwargs}
         self.set_context(**save_context)
         try:
@@ -212,7 +234,25 @@ class AbstractBaseWriter(ABC):
         return out_path
 
     def resolve_path(self, **kwargs: object) -> Path:
-        """Generate a file path based on the filename format, subject ID, and additional parameters."""
+        """
+        Generate a file path based on the filename format, subject ID, and
+        additional parameters.
+
+        **What It Does**:
+
+        - Dynamically generates a file path based on the provided context and
+        filename format.
+
+        **When to Use It**:
+
+        - This method is meant to be used in the `save` method to determine the
+        file’s target location, but can also be used by external code to
+        generate paths.
+        - It ensures you’re working with a valid path and can handle file
+        existence scenarios.
+        - Only raises `FileExistsError` if the file already exists and the mode
+        is set to `FAIL`.
+        """
         out_path = self._generate_path(**kwargs)
         if not out_path.exists():
             if self.create_dirs:
@@ -234,43 +274,47 @@ class AbstractBaseWriter(ABC):
                 return out_path
 
     def preview_path(self, **kwargs: object) -> Optional[Path]:
-        """Pre-checking file existence and setting up the writer context.
+        """
+        Pre-checking file existence and setting up the writer context.
 
-        Only difference between this and resolve_path is that this method returns
-        None if the file exists and the mode is SKIP.
+        Only difference between this and resolve_path is that this method
+        returns None if the file exists and the mode is SKIP.
 
         **What It Does**:
 
         - Pre-checks the file path based on context without writing the file.
         - Returns `None` if the file exists and the mode is set to `SKIP`.
         - Raises a `FileExistsError` if the mode is set to `FAIL`.
-        - An added benefit of using `preview_path` is that it automatically caches the context
-        variables for future use, and `save()` can be called without passing in the context
-        variables again.
+        - An added benefit of using `preview_path` is that it automatically
+        caches the context variables for future use, and `save()` can be called
+        without passing in the context variables again.
 
         **When to Use It**:
 
-        - Meant to be called by users to skip expensive computations if a file already exists and you
-        don’t want to overwrite it.
+        - Meant to be called by users to skip expensive computations if a file
+        already exists and you don’t want to overwrite it.
 
         Examples
         --------
 
-        Main idea here is to allow users to save computation if they choose to skip existing files.
-        i.e if file exists and mode is SKIP, we return None, so the user can skip the computation.
+        Main idea here is to allow users to save computation if they choose to
+        skip existing files. i.e if file exists and mode is SKIP, we return
+        None, so the user can skip the computation.
         >>> if writer.preview_path(subject="math", name="context_test") is None:
         >>>     continue
 
-        if the mode is FAIL, we raise an error if the file exists, so user doesnt have to
-        perform expensive computation only to fail when saving.
+        if the mode is FAIL, we raise an error if the file exists, so user
+        doesnt have to perform expensive computation only to fail when saving.
 
-        The keyword arguments passed are also saved in the instance, so running .save() will use
-        the same context, optionally can update the context with new values passed to .save().
+        The keyword arguments passed are also saved in the instance, so running
+        .save() will use the same context, optionally can update the context
+        with new values passed to .save().
 
         >>> if path := writer.preview_path(subject="math", name="context_test"):
 
         do some expensive computation to generate the data you wish to save
-        >>> writer.save(data)  # automatically uses the context set in preview_path
+        >>> writer.save(data)  # automatically uses the context set in
+        preview_path
 
         Parameters
         ----------
@@ -280,9 +324,10 @@ class AbstractBaseWriter(ABC):
         Returns
         ------
         Path | None
-            if the file exists and the mode is SKIP, returns None.
-            if the file exists and the mode is FAIL, raises a FileExistsError.
-            if the file exists and the mode is OVERWRITE, logs a debug message and returns the path.
+            if the file exists and the mode is SKIP, returns None. if the file
+            exists and the mode is FAIL, raises a FileExistsError. if the file
+            exists and the mode is OVERWRITE, logs a debug message and returns
+            the path.
 
         Raises
         ------
@@ -315,8 +360,8 @@ class AbstractBaseWriter(ABC):
         """
         Enter the runtime context related to this writer.
 
-        Useful if the writer needs to perform setup actions, such as
-        opening connections or preparing resources.
+        Useful if the writer needs to perform setup actions, such as opening
+        connections or preparing resources.
         """
         logger.debug(f"Entering context manager for {self.__class__.__name__}")
         return self
@@ -385,13 +430,18 @@ class AbstractBaseWriter(ABC):
         return sanitized
 
     def _ensure_directory_exists(self, directory: Path) -> None:
-        """Ensure a directory exists, caching the check to avoid redundant operations."""
+        """
+        Ensure a directory exists, caching the check to avoid redundant
+        operations.
+        """
         if str(directory) not in self._checked_directories:
             directory.mkdir(parents=True, exist_ok=True)
             self._checked_directories.add(str(directory))
 
     def put(self, *args, **kwargs) -> NoReturn:  # noqa
-        """Accdidentally using put() instead of save() will raise a fatal error."""
+        """
+        Accdidentally using put() instead of save() will raise a fatal error.
+        """
         msg = (
             "Method put() is deprecated and will be removed in future versions. "
             "Please use AbstractBaseWriter.save() instead of the old BaseWriter.put()."
@@ -402,7 +452,9 @@ class AbstractBaseWriter(ABC):
         sys.exit(1)
 
     def _generate_datetime_strings(self) -> dict[str, str]:
-        """Free to use date-time context values."""
+        """
+        Free to use date-time context values.
+        """
         now = datetime.now(timezone.utc)
         return {
             "date": now.strftime("%Y-%m-%d"),
@@ -411,7 +463,9 @@ class AbstractBaseWriter(ABC):
         }
 
     def __del__(self) -> None:
-        """Ensure the lock file is removed when the writer is deleted."""
+        """
+        Ensure the lock file is removed when the writer is deleted.
+        """
         if (lock := self._get_index_lock()).exists():
             lock.unlink()
 
@@ -431,21 +485,21 @@ class AbstractBaseWriter(ABC):
         path : Path
             The file path being saved.
         include_all_context : bool
-            If True, includes all context keys in the CSV (includes datetime strings).
-            If False, only includes keys used in the filename.
+            If True, includes all context keys in the CSV (includes datetime
+            strings). If False, only includes keys used in the filename.
             Defaults to True.
         filepath_column : str
-            The name of the column to store the file path.
-            Defaults to "path".
+            The name of the column to store the file path. Defaults to "path".
         replace_existing : bool
-            If True, checks if the file path already exists in the index and replaces it.
+            If True, checks if the file path already exists in the index and
+            replaces it.
         **additional_context : Any
             Additional context information to include in the CSV.
 
         Notes
         -----
-        Uses `csv.Sniffer` to validate the existing file format before processing
-        if `replace_existing` is set to True.
+        Uses `csv.Sniffer` to validate the existing file format before
+        processing if `replace_existing` is set to True.
         """
 
         lock_file = self._get_index_lock()
@@ -510,7 +564,9 @@ class AbstractBaseWriter(ABC):
 
 
 class ExampleWriter(AbstractBaseWriter):
-    """A concrete implementation of AbstractBaseWriter for demonstration."""
+    """
+    A concrete implementation of AbstractBaseWriter for demonstration.
+    """
 
     def save(self, content: str, **kwargs) -> Path:
         """
@@ -559,7 +615,9 @@ if __name__ == "__main__":
     def write_files_in_process(
         process_id: int, writer_config: Dict[str, Any], file_count: int, mode: str
     ):
-        """Worker function for a process to write files using ExampleWriter."""
+        """
+        Worker function for a process to write files using ExampleWriter.
+        """
         writer = ExampleWriter(**writer_config)
 
         content = f"This is a file written by process {process_id}."
@@ -575,7 +633,9 @@ if __name__ == "__main__":
     def run_multiprocessing(
         writer_config: Dict[str, Any], num_processes: int, files_per_process: int
     ):
-        """Run file-writing tasks using multiprocessing."""
+        """
+        Run file-writing tasks using multiprocessing.
+        """
         processes = []
         for process_id in range(num_processes):
             p = multiprocessing.Process(
@@ -591,7 +651,9 @@ if __name__ == "__main__":
     def run_single_process(
         writer_config: Dict[str, Any], num_processes: int, files_per_process: int
     ):
-        """Run file-writing tasks sequentially without multiprocessing."""
+        """
+        Run file-writing tasks sequentially without multiprocessing.
+        """
         for process_id in range(num_processes):
             write_files_in_process(
                 process_id, writer_config, files_per_process, "single"
