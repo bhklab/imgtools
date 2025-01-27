@@ -60,20 +60,22 @@ def dicom_test_file():
 
 
 class TestResolvePath:
+
+
     def test_resolve_path_with_absolute_path_no_truncate(self, dicom_test_file) -> None:
         path = dicom_test_file
         keys = {'PatientID', 'StudyInstanceUID'}
         format_str = '/resolved/path/%(PatientID)s/%(StudyInstanceUID)s'
         result = resolve_path(path, keys, format_str, truncate=False)
-        assert result[0] == path
-        assert result[1] == Path(
+        assert result[0].resolve() == path.resolve()
+        assert result[1].resolve() == Path(
             format_str
             % {
                 'PatientID': '123456',
                 'StudyInstanceUID': '1.2.840.113619.2.55.3.604688.98765432.9876543210',
             },
             path.name,
-        )
+        ).resolve()
 
         # try again after explicitly touching the expected path
         format_str = '/tmp/path/%(PatientID)s/%(StudyInstanceUID)s'

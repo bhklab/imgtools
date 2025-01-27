@@ -17,7 +17,7 @@ jobs:
     continue-on-error: true # dont fail the whole matrix if one fails
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, macos-14] # , windows-latest removed for now
+        os: [ubuntu-latest, macos-latest, macos-14, windows-latest] 
         env: ["py310", "py311", "py312"]
 
     steps:
@@ -32,8 +32,10 @@ jobs:
           locked: false # wont be the same because of the tag
 
       - name: Run pytest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pixi run -e ${{ matrix.env }} test_ci
+          pixi run -e ${{ matrix.env }} test_ci -s -vv
 
       - name: Upload coverage report artifact to be used by Codecov
         # only upload if matrix.os is ubuntu-latest and matrix.python-version is 3.12

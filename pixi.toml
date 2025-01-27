@@ -3,7 +3,7 @@ authors = ["Jermiah Joseph <jermiahjoseph98@gmail.com>"]
 channels = ["conda-forge"]
 description = "Add a short description here"
 name = "med-imagetools"
-platforms = ["linux-64", "osx-arm64"]
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
 
 
 [dependencies]
@@ -12,7 +12,7 @@ pip = ">=24.3.1,<25"
 
 
 [pypi-dependencies]
-med-imagetools = { path = ".", editable = true }
+med-imagetools = { path = ".", editable = true}
 
 [environments]
 dev = ["test", "quality", "build", "dev", "docs"]
@@ -23,6 +23,9 @@ py311 = { features = ["py311", "test"], no-default-feature = true }
 py312 = { features = ["py312", "test"], no-default-feature = true }
 
 ############################################## DEV ###############################################
+[feature.dev.pypi-dependencies]
+med-imagetools = { path = ".", editable = true, extras = ["all"]}
+
 [feature.dev.dependencies]
 ipython = "*"
 ipykernel = "*"
@@ -47,18 +50,17 @@ python = "3.11.*"
 [feature.py312.dependencies]
 python = "3.12.*"
 
-
 ############################################## TEST ################################################
+[feature.test.pypi-dependencies]
+med-imagetools = { path = ".", editable = true, extras = ["test"]}
 
 [feature.test.dependencies]
 pytest = "*"
 pytest-cov = "*"
-pytest-xdist = "*"
+# pytest-xdist = "*" re-introduce later. 
 pytest-mock = ">=3.14.0,<4"
 sqlalchemy-stubs = ">=0.4,<0.5"
 
-[feature.test.pypi-dependencies]
-med-imagetools = { path = ".", editable = true }
 
 [feature.test.tasks.test]
 cmd = "pytest -c config/pytest.ini --rootdir . --basetemp='./tests/temp'"
