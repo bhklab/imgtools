@@ -10,6 +10,8 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
   - mkdocs-click
   
 theme: 
@@ -83,7 +85,7 @@ plugins:
             show_root_heading: true
             show_root_full_path: false
             # Signatures
-            annotations_path: brief
+            annotations_path: full
             modernize_annotations: true    # https://mkdocstrings.github.io/python/usage/configuration/signatures/#modernize_annotations
             separate_signature: true        # https://mkdocstrings.github.io/python/usage/configuration/signatures/#separate_signature
             show_signature_annotations: true

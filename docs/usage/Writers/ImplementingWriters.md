@@ -85,8 +85,6 @@ is written to files and interacts with the core features of `AbstractBaseWriter`
 
 Here’s a minimal implementation of the `save` method for a custom writer.
 
-
-
 ```python
 from pathlib import Path
 from mypackage.abstract_base_writer import AbstractBaseWriter
@@ -98,10 +96,10 @@ class MyCustomWriter(AbstractBaseWriter):
         # or just let the error propagate
         output_path = self.resolve_path(**kwargs) # resolve_path will always return the path
 
-        # OPTIONAL handling for "RAISE_WARNING" or "SKIP" modes
+        # OPTIONAL handling for "SKIP" modes
         if output_path.exists():
             # this will only be true if the file existence mode
-            # is set to RAISE_WARNING OR SKIP
+            # is set to SKIP
             # - OVERWRITE will have already deleted the file
             # - upto developer to choose to handle this if set to SKIP
             pass
@@ -121,11 +119,12 @@ class MyCustomWriter(AbstractBaseWriter):
 
 ## Key Methods
 
-### ***TODO:: would it be helpful to embed the actual code signatures + docstrings here?***
-
 The `AbstractBaseWriter` provides several utility methods that simplify file writing
 and context management. These methods are designed to be flexible and reusable,
 allowing you to focus on your custom implementation.
+
+<!-- 
+**old examples**:
 
 For the descriptions below, lets consider this subclass of `AbstractBaseWriter`:
 
@@ -150,34 +149,6 @@ writer = ReportCardWriter(
 )
 ```
 
-::: imgtools.io.writers.AbstractBaseWriter.resolve_path
-
-**What It Does**:
-
-- Dynamically generates a file path based on the provided context and filename format.
-
-**When to Use It**:
-
-- This method is meant to be used in the `save` method to determine the file’s
-  target location, but can also be used by external code to generate paths.
-- It ensures you’re working with a valid path and can handle file existence scenarios.
-- Only raises `FileExistsError` if the file already exists and the mode is set to `FAIL`.
-
-**Example**:
-
-```python
-  ...
-  # i.e kwargs = {"subject": "math", "name": "JohnDoe"}
-  output_path = writer.resolve_path(**kwargs) 
-  print(f"Resolved path: {output_path}")
-  ...
-```
-
-::: imgtools.io.writers.AbstractBaseWriter.preview_path
-
-
-**Example**:
-
 ```python
 if writer.preview_path(subject="math", name="JohnDoe") is None:
     print("File already exists, skipping computation.")
@@ -189,30 +160,20 @@ else:
 output_path = writer.save(content="Hello, world!")
 print(output_path)
 # 'results/outputs/math/JohnDoe_report.txt'
-```
+``` 
+
+-->
+
+::: imgtools.io.writers.AbstractBaseWriter.resolve_path
+
+::: imgtools.io.writers.AbstractBaseWriter.preview_path
+
+::: imgtools.io.writers.AbstractBaseWriter.clear_context
 
 ---
 
 ::: imgtools.io.writers.AbstractBaseWriter.add_to_index
 
-**What It Does**:
-
-- Logs the file’s path and associated context variables to a shared CSV index file.  
-- Uses inter-process locking to avoid conflicts when multiple writers are active.
-
-**When to Use It**:
-
-- Use this method to maintain a centralized record of saved files for auditing
-  or debugging.
-
-**Relevant Parameters**:
-
-- The `index_filename` parameter allows you to specify a custom filename for the index file.
-  By default, it will be named after the `root_directory` with `_index.csv` appended.
-- If the index file already exists in the root directory, it will overwrite it unless
-  the `overwrite_index` parameter is set to `False`.
-- The `absolute_paths_in_index` parameter controls whether the paths in the index file
-  are absolute or relative to the root directory, with `False` being the default.
 
 ---
 

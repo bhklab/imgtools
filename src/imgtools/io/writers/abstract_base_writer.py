@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 import csv
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from enum import Enum, auto
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, NoReturn, Optional
 
@@ -19,19 +19,19 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 
-class ExistingFileMode(Enum):
+class ExistingFileMode(str, Enum):
     """
     Enum to specify handling behavior for existing files.
 
     Attributes
     ----------
-    OVERWRITE : auto()
+    OVERWRITE: str
         Overwrite the existing file. Logs as debug and continues with the
         operation.
-    FAIL : auto()
+    FAIL: str
         Fail the operation if the file exists. Logs as error and raises a
         FileExistsError.
-    SKIP : auto()
+    SKIP: str
         Skip the operation if the file exists. Meant to be used for previewing
         the path before any expensive computation. `preview_path()` will return
         None if the file exists. `resolve_path()` will still return the path
@@ -39,9 +39,9 @@ class ExistingFileMode(Enum):
         file existence if set to SKIP.
     """
 
-    OVERWRITE = auto()
-    SKIP = auto()
-    FAIL = auto()
+    OVERWRITE = "overwrite"
+    SKIP = "skip"
+    FAIL = "fail"
 
 
 @dataclass
@@ -106,7 +106,7 @@ class AbstractBaseWriter(ABC):
         metadata={
             "help": (
                 "Name of the index file to track saved files. If an absolute path "
-                "is provided, it will be used as is. Otherwise, it will be saved "
+                "is provided, it will be used as is. If not provided, it will be saved "
                 f"in the root directory with the format of {root_directory.name}_index.csv."
             )
         },
@@ -154,8 +154,17 @@ class AbstractBaseWriter(ABC):
         self.pattern_resolver = PatternResolver(self.filename_format)
 
         # if the existing_file_mode is a string, convert it to the Enum
-        if isinstance(self.existing_file_mode, str):
-            self.existing_file_mode = ExistingFileMode[self.existing_file_mode.upper()]
+        match self.existing_file_mode:
+            case str():
+                self.existing_file_mode = ExistingFileMode[
+                    self.existing_file_mode.upper()
+                ]
+            case _:
+                errmsg = (
+                    f"Invalid existing_file_mode {self.existing_file_mode}. "
+                    "Must be one of 'overwrite', 'skip', or 'fail'."
+                )
+                raise ValueError(errmsg)
 
     @abstractmethod
     def save(self, *args: Any, **kwargs: object) -> Path:  # noqa
@@ -206,6 +215,9 @@ class AbstractBaseWriter(ABC):
     def clear_context(self) -> None:
         """
         Clear the context for the writer.
+
+        Useful for resetting the context after using `preview_path` or `save`
+        and want to make sure that the context is empty for new operations.
         """
         self.context.clear()
 
@@ -238,6 +250,9 @@ class AbstractBaseWriter(ABC):
         Generate a file path based on the filename format, subject ID, and
         additional parameters.
 
+        Meant to be used by developers when creating a new writer class
+        and used internally by the `save` method.
+
         **What It Does**:
 
         - Dynamically generates a file path based on the provided context and
@@ -252,6 +267,21 @@ class AbstractBaseWriter(ABC):
         existence scenarios.
         - Only raises `FileExistsError` if the file already exists and the mode
         is set to `FAIL`.
+
+        Parameters
+        ----------
+        **kwargs : Any
+            Parameters for resolving the filename and validating existence.
+
+        Returns
+        -------
+        resolved_path: Path
+            The resolved path for the file.
+
+        Raises
+        ------
+        FileExistsError
+            If the file already exists and the mode is set to FAIL.
         """
         out_path = self._generate_path(**kwargs)
         if not out_path.exists():
@@ -269,7 +299,7 @@ class AbstractBaseWriter(ABC):
                 msg = f"File {out_path} already exists."
                 raise FileExistsError(msg)
             case ExistingFileMode.OVERWRITE:
-                logger.debug(f"File {out_path} exists. Deleting and overwriting.")
+                logger.debug(f"Deleting existing {out_path} and overwriting.")
                 out_path.unlink()
                 return out_path
 
@@ -277,8 +307,11 @@ class AbstractBaseWriter(ABC):
         """
         Pre-checking file existence and setting up the writer context.
 
+        Meant to be used by users to skip expensive computations if a file
         Only difference between this and resolve_path is that this method
-        returns None if the file exists and the mode is SKIP.
+        returns `None` if the file exists and the mode is `SKIP`.
+        This is because, the `.save()` method should be able to return
+        the path even if the file exists.
 
         **What It Does**:
 
@@ -298,23 +331,30 @@ class AbstractBaseWriter(ABC):
         --------
 
         Main idea here is to allow users to save computation if they choose to
-        skip existing files. i.e if file exists and mode is SKIP, we return
-        None, so the user can skip the computation.
-        >>> if writer.preview_path(subject="math", name="context_test") is None:
-        >>>     continue
+        skip existing files.
 
-        if the mode is FAIL, we raise an error if the file exists, so user
+        i.e if file exists and mode is **`SKIP`**, we return
+        `None`, so the user can skip the computation.
+        >>> if nifti_writer.preview_path(subject="math", name="test") is None:
+        >>>     logger.info("File already exists. Skipping computation.")
+        >>>     continue # could be `break` or `return` depending on the use case
+
+        if the mode is **`FAIL`**, we raise an error if the file exists, so user
         doesnt have to perform expensive computation only to fail when saving.
 
-        The keyword arguments passed are also saved in the instance, so running
-        .save() will use the same context, optionally can update the context
-        with new values passed to .save().
+        **Useful Feature**
+        ----------------------
+        the context is saved in the instance, so running
+        `.save()` after this will use the same context, and user can optionally
+        update the context with new values passed to .save().
 
-        >>> if path := writer.preview_path(subject="math", name="context_test"):
-
-        do some expensive computation to generate the data you wish to save
-        >>> writer.save(data)  # automatically uses the context set in
-        preview_path
+        ```python
+        >>> if path := writer.preview_path(subject="math", name="test"):
+        >>>     ... # do some expensive computation to generate the data
+        >>>     writer.save(data)
+        ```
+        `.save()` automatically uses the context for `subject` and `name` we
+        passed to `preview_path`
 
         Parameters
         ----------
@@ -480,14 +520,45 @@ class AbstractBaseWriter(ABC):
         """
         Add or update an entry in the shared CSV index file.
 
+
+        **What It Does**:
+
+        - Logs the file’s path and associated context variables to a
+            shared CSV index file.
+        - Uses inter-process locking to avoid conflicts when
+            multiple writers are active.
+
+        **When to Use It**:
+
+        - Use this method to maintain a centralized record of saved
+        files for auditing or debugging.
+
+        **Relevant Writer Parameters**
+        ------------------------------
+
+        - The `index_filename` parameter allows you to specify a
+        custom filename for the index file.
+        By default, it will be named after the `root_directory`
+        with `_index.csv` appended.
+
+        - If the index file already exists in the root directory,
+        it will overwrite it unless
+        the `overwrite_index` parameter is set to `False`.
+
+        - The `absolute_paths_in_index` parameter controls whether
+        the paths in the index file are absolute or relative to the
+        `root_directory`, with `False` being the default.
+
         Parameters
         ----------
         path : Path
             The file path being saved.
         include_all_context : bool
-            If True, includes all context keys in the CSV (includes datetime
-            strings). If False, only includes keys used in the filename.
-            Defaults to True.
+            If True, write existing context variables passed into writer and
+            the additional context to the CSV.
+            If False, determines only the context keys parsed from the
+            `filename_format` (excludes all other context variables, and
+            unused context keys).
         filepath_column : str
             The name of the column to store the file path. Defaults to "path".
         replace_existing : bool
@@ -498,8 +569,11 @@ class AbstractBaseWriter(ABC):
 
         Notes
         -----
-        Uses `csv.Sniffer` to validate the existing file format before
-        processing if `replace_existing` is set to True.
+        When `replace_existing` is set to True, the method will check if the
+        file path already exists in the index file using `csv.Sniffer` and
+        replace the row if it does. If the file path does not exist in the
+        index file, it will add a new row with the file path and context
+        information.
         """
 
         lock_file = self._get_index_lock()

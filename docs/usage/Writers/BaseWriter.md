@@ -80,78 +80,162 @@ writer.save(
 - The `AbstractBaseWriter` provides several options to handle this scenario through the use of
   an `enum` called `ExistingFileMode`.
 
-**Available Modes**:
-
-- **`OVERWRITE`**: Delete and replace the file.  
-- **`SKIP`**: Skip the writing step.  
-- **`FAIL`**: Raise an exception if the file exists (default).
-
 It is important to handle these options carefully in your writer's `save()` method to
 avoid data loss or conflicts.
+<!-- adding this here too early might be confusing
+```python
+from imgtools.io.writers import ExistingFileMode
+
+writer = ExampleWriter(
+    root_directory="./data",
+    filename_format="{person_name}/{date}_{message_type}.txt",
+    existing_file_mode=ExistingFileMode.OVERWRITE,
+)
+
+data = "Hello, World!"
+writer.save(
+  data, 
+  person_name="JohnDoe",
+  date="2025-01-01",
+  message_type="greeting"
+)
+# Should see a log message (assuming log level is set to `DEBUG`)
+# [DEBUG] File data/JohnDoe/2025-01-01_greeting.txt exists. Deleting and overwriting.
+``` 
+-->
+
+::: imgtools.io.writers.ExistingFileMode
+    options:
+      heading_level: 4
 
 ## Advanced Concepts
 
-### Previewing File Paths and Caching Context
+### Lifecycle Management
 
-In basic usage, users can pass in the context information as keyword arguments to each
-`save()` call.
+**Context Manager Support**:
 
-However, this can become cumbersome when the same context variables are used across multiple
-save operations.
+- Writers can be used with `with` statements to ensure proper setup and cleanup.  
+
+**What Happens on Exit?**:
+
+- Removes lock files used for the index file.  
+- Deletes empty directories created during the writing process (if no files were written).  
 
 Example:
 
 ```python
-writer = ExampleWriter(
-    root_directory="./data",
-    filename_format="{class_subject}/{person_name}/{date}_{message_type}.txt",
-)
-
-student_greetings = {
-    "Alice": "Hello, Alice!",
-    "Bob": "Hi, Bob!",
-    "Charlie": "Hey, Charlie!",
-}
-
-# Basic usage
-for student, message in student_greetings.items():
-    writer.save(
-        message,
-        person_name=student,
-        class_subject="math",
-        date="2025-01-01",
-        message_type="greeting"
-    )
+with TextWriter(root_directory="/data", filename_format="{id}.txt") as writer:
+  data = "Hello, World!"
+  writer.save(data, id="1234")
 ```
+
+### Previewing File Paths and Caching Context
+
+In the simplest usage of a writer, users can pass in the context information as
+keyword arguments to each `save()` call.
+
+However, this can become cumbersome when the same context variables are used across multiple
+save operations.
+
+**Example:**
 
 In the above example, the `date` and `message_type` context variables are the same for all
 students. Instead of passing them in every time, you can store these variables in the writer
 itself and update them as needed.
 
-```python
-# Advanced usage
-writer.set_context(class_subject="math", date="2025-01-01", message_type="greeting")
+Let's use the following example to illustrate this:
 
-for student, message in student_greetings.items():
-    writer.save(message, person_name=student)
-
-# clear context if needed
-writer.clear_context()
-```
-
-If majority of the context variables are the same across all save operations, you can
-set context when initializing the writer.
+Say we want to save greetings for students in a particular highschool class:
 
 ```python
-writer = ExampleWriter(
+writer = TextWriter(
     root_directory="./data",
-    filename_format="{class_subject}/{person_name}/{date}_{message_type}.txt",
-    context={"class_subject": "math", "date": "2025-01-01", "message_type": "greeting"}
+    filename_format="{grade}/{class_subject}/{person_name}/{date}_{message_type}.txt",
 )
 ```
 
+
+=== "Basic Usage"
+
+    We see here that the context variables for `grade`,
+    `class_subject`, `date`, and `message_type`
+    are the same for all students.
+
+    This can become even worse with more
+    context variables, allowing for mistakes, and making the code harder to read.
+
+    ```python
+    
+    student, message = "Alice", "Hello, Alice!"
+    writer.save(
+        message,
+        person_name=student,
+        grade="12",
+        class_subject="math",
+        date="2025-01-01",
+        message_type="greeting"
+    )
+
+    student, message = "Bob", "Good morning, Bob!"
+    writer.save(
+        message,
+        person_name=student,
+        grade="12",
+        class_subject="math",
+        date="2025-01-01",
+        message_type="greeting"
+    )
+    ```
+
+=== "Setting Context Variables manually"
+
+    Instead of passing in the context variables every time,
+    you can store these variables in the writer and update them as needed
+    using the `set_context()` method.
+
+    Then only pass in the unique context variables for each `.save()` operation.
+
+    ```python
+    writer.set_context(
+      grade="12",
+      class_subject="math",
+      date="2025-01-01",
+      message_type="greeting"
+    )
+
+    student, message = "Alice", "Hello, Alice!"
+    writer.save(message, person_name=student)
+
+    student, message = "Bob", "Good morning, Bob!"
+    writer.save(message, person_name=student)
+    ```
+
+=== "Setting Context Variables during Initialization"
+
+    If majority of the context variables are the same across all save 
+    operations, you can set context when initializing the writer.
+
+    Note that here, we must pass as a dictionary to the `context` parameter 
+    instead of individual keyword arguments.
+
+    ```python
+    writer = TextWriter(
+        root_directory="./data",
+        filename_format="{class_subject}/{person_name}/{date}_{message_type}.txt",
+        context={"grade": "12", "class_subject": "math", "date": "2025-01-01", "message_type": "greeting"}
+    )
+
+    student, message = "Alice", "Hello, Alice!"
+    writer.save(message, person_name=student)
+
+    student, message = "Bob", "Good morning, Bob!"
+    writer.save(message, person_name=student)
+    ```
+
+#### Previewing File Paths
+
 Oftentimes, you may want to check if a file exists before performing an expensive computation.
-If you set the existence mode to `SKIP`, the `preview_path()` method will return `None` if the
+If you set the existence mode to `ExistingFileMode.SKIP`, the `preview_path()` method will return `None` if the
 file already exists, allowing you to skip the computation.
 
 This method also caches the additional context variables for future use.
@@ -159,6 +243,9 @@ This method also caches the additional context variables for future use.
 Here's an example of how you might handle this:
 
 ```python
+# assuming writer is already initialized with `existing_file_mode=ExistingFileMode.SKIP`
+
+# set some context variables
 writer.set_context(class_subject="math", date="2025-01-01", message_type="greeting")
 
 if (path := writer.preview_path(person_name="Alice")) is None:
@@ -219,21 +306,3 @@ else:
 - Supports multiprocessing with inter-process locking to ensure thread-safe file writes.  
 - Avoids conflicts or data corruption when multiple instances of a writer are running.
 
-### Lifecycle Management
-
-**Context Manager Support**:
-
-- Writers can be used with `with` statements to ensure proper setup and cleanup.  
-
-**What Happens on Exit?**:
-
-- Removes lock files used for the index file.  
-- Deletes empty directories created during the writing process (if no files were written).  
-
-Example:
-
-```python
-with ExampleWriter(root_directory="/data", filename_format="{id}.txt") as writer:
-  data = "Hello, World!"
-  writer.save(data, id="1234")
-```
