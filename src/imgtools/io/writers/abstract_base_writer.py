@@ -51,7 +51,9 @@ class AbstractBaseWriter(ABC):
 
     # Any subclass has to be initialized with a root directory and a filename format
     # Gets converted to a Path object in __post_init__
-    root_directory: Path = field(metadata={"help": "Root directory where files will be saved."})
+    root_directory: Path = field(
+        metadata={"help": "Root directory where files will be saved."}
+    )
 
     # The filename format string with placeholders for context variables
     # e.g. "{subject_id}_{date}/{disease}.txt"
@@ -68,17 +70,23 @@ class AbstractBaseWriter(ABC):
     # optionally, you can set create_dirs to False if you want to handle the directory creation yourself
     create_dirs: bool = field(
         default=True,
-        metadata={"help": "If True, creates necessary directories if they don't exist."},
+        metadata={
+            "help": "If True, creates necessary directories if they don't exist."
+        },
     )
 
     existing_file_mode: ExistingFileMode = field(
         default=ExistingFileMode.FAIL,
-        metadata={"help": "Behavior when a file already exists. Options: OVERWRITE, SKIP, FAIL"},
+        metadata={
+            "help": "Behavior when a file already exists. Options: OVERWRITE, SKIP, FAIL"
+        },
     )
 
     sanitize_filenames: bool = field(
         default=True,
-        metadata={"help": "If True, replaces illegal characters from filenames with underscores."},
+        metadata={
+            "help": "If True, replaces illegal characters from filenames with underscores."
+        },
     )
 
     # Internal context storage for pre-checking
@@ -130,7 +138,9 @@ class AbstractBaseWriter(ABC):
             msg = f"Index file directory {self.index_file.parent} does not exist."
             raise DirectoryNotFoundError(msg)
         if self.index_file.exists() and self.overwrite_index:
-            logger.info(f"Index file {self.index_file} already exists. Copying to .backup.")
+            logger.info(
+                f"Index file {self.index_file} already exists. Copying to .backup."
+            )
             # copy to .backup just in case
             self.index_file.rename(f"{self.index_file}.backup")
         self.pattern_resolver = PatternResolver(self.filename_format)
@@ -463,15 +473,23 @@ class AbstractBaseWriter(ABC):
                 ):
                     sniffer = csv.Sniffer()
                     if not sniffer.has_header(f.readline()):
-                        raise ValueError(f"Index file {self.index_file} is missing a header row.")
+                        raise ValueError(
+                            f"Index file {self.index_file} is missing a header row."
+                        )
                     f.seek(0)  # Reset the file pointer after sampling
                     reader = csv.DictReader(f)
                     if filepath_column not in reader.fieldnames:
                         msg = f"Index file {self.index_file} does not contain the column '{filepath_column}'."
                         raise ValueError(msg)
-                    rows = [row for row in reader if row[filepath_column] != str(resolved_path)]
+                    rows = [
+                        row
+                        for row in reader
+                        if row[filepath_column] != str(resolved_path)
+                    ]
             except Exception as e:
-                logger.exception(f"Error validating index file {self.index_file}.", error=e)
+                logger.exception(
+                    f"Error validating index file {self.index_file}.", error=e
+                )
                 raise
 
         # Add the new or updated row
@@ -575,7 +593,9 @@ if __name__ == "__main__":
     ):
         """Run file-writing tasks sequentially without multiprocessing."""
         for process_id in range(num_processes):
-            write_files_in_process(process_id, writer_config, files_per_process, "single")
+            write_files_in_process(
+                process_id, writer_config, files_per_process, "single"
+            )
 
     ROOT_DIR = Path("./data/demo/abstract_writer_showcase")
 
