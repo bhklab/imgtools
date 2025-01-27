@@ -154,7 +154,6 @@ writer = TextWriter(
 )
 ```
 
-
 === "Basic Usage"
 
     We see here that the context variables for `grade`,
@@ -276,8 +275,8 @@ else:
 
 **Key Features**:
 
-- **Customizable Filename**: Use index_filename to set a custom name or absolute path.
-- **Absolute/Relative Paths**: Control file paths in the index with absolute_paths_in_index.
+- **Customizable Filename**: Use `index_filename` to set a custom name or absolute path.
+- **Absolute/Relative Paths**: Control file paths in the index with `absolute_paths_in_index`.
 - **Inter-process Locking**: Prevents conflicts in concurrent writing environments.
 
 ### Sanitizing Filenames
