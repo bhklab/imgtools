@@ -106,7 +106,7 @@ class NIFTIWriter(AbstractBaseWriter[sitk.Image | np.ndarray]):
             case np.ndarray():
                 logger.debug("Converting numpy array to SimpleITK image.")
                 image = sitk.GetImageFromArray(data)
-            case _:  # type: ignore
+            case _:
                 msg = "Input must be a SimpleITK Image or a numpy array"
                 raise NiftiWriterValidationError(msg)
 

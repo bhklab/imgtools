@@ -1,7 +1,14 @@
 from pathlib import Path
-from typing import Any
+from typing import TypeAlias
+
+import numpy as np
+import SimpleITK as sitk
 
 from .abstract_base_writer import AbstractBaseWriter
+
+# a type to represent data that can be saved to HDF5
+# for now, we consider 'np.ndarray', sitk.Image
+HDF5Data: TypeAlias = np.ndarray | sitk.Image
 
 
 class HDF5WriterError(Exception):
@@ -10,14 +17,13 @@ class HDF5WriterError(Exception):
     pass
 
 
-class HDF5Writer(AbstractBaseWriter):
+class HDF5Writer(AbstractBaseWriter[np.ndarray | sitk.Image]):
     """Class for managing HDF5 file writing."""
 
     def __post_init__(self) -> None:
-        self._validate_h5py()
-        self.super().__post_init__()
+        super().__post_init__()
 
-    def save(self, data: Any, path: Path) -> None:  # noqa
+    def save(self, data: np.ndarray | sitk.Image, **kwargs: object) -> Path:
         """Save data to HDF5 file.
 
         TODO: see PyTables for more advanced HDF5 writing options.
@@ -25,4 +31,5 @@ class HDF5Writer(AbstractBaseWriter):
         Args:
             data: Data to save.
         """
-        pass
+
+        raise NotImplementedError

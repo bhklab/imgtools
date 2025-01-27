@@ -29,8 +29,6 @@ from imgtools.pattern_parser import (
 if TYPE_CHECKING:
     from types import TracebackType
 
-ContentType = TypeVar("ContentType")
-
 
 class ExistingFileMode(str, Enum):
     """
@@ -55,6 +53,11 @@ class ExistingFileMode(str, Enum):
     OVERWRITE = "overwrite"
     SKIP = "skip"
     FAIL = "fail"
+
+
+# Generic type for any content that will be saved by an
+# implementation of AbstractBaseWriter
+ContentType = TypeVar("ContentType")
 
 
 # here we add a Generic type to the class
@@ -177,7 +180,7 @@ class AbstractBaseWriter(ABC, Generic[ContentType]):
                     self.existing_file_mode.upper()
                 ]
             case _:
-                errmsg = (
+                errmsg = (  # type: ignore
                     f"Invalid existing_file_mode {self.existing_file_mode}. "
                     "Must be one of 'overwrite', 'skip', or 'fail'."
                 )
