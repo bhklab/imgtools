@@ -6,8 +6,8 @@ import pickle
 import shutil
 from datetime import datetime, timezone
 
-import h5py
-import nrrd
+import h5py # type: ignore
+import nrrd # type: ignore
 import numpy as np
 import SimpleITK as sitk
 from skimage.measure import regionprops
