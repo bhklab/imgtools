@@ -55,7 +55,11 @@ class NIFTIWriter(AbstractBaseWriter):
         """
         super().__post_init__()
 
-        if not self.MIN_COMPRESSION_LEVEL <= self.compression_level <= self.MAX_COMPRESSION_LEVEL:
+        if (
+            not self.MIN_COMPRESSION_LEVEL
+            <= self.compression_level
+            <= self.MAX_COMPRESSION_LEVEL
+        ):
             msg = (
                 f"Invalid compression level {self.compression_level}. "
                 f"Must be between {self.MIN_COMPRESSION_LEVEL} and "
@@ -63,14 +67,18 @@ class NIFTIWriter(AbstractBaseWriter):
             )
             raise NiftiWriterValidationError(msg)
 
-        if not any(self.filename_format.endswith(ext) for ext in self.VALID_EXTENSIONS):
+        if not any(
+            self.filename_format.endswith(ext) for ext in self.VALID_EXTENSIONS
+        ):
             msg = (
                 f"Invalid filename format {self.filename_format}. "
                 f"Must end with one of {self.VALID_EXTENSIONS}."
             )
             raise NiftiWriterValidationError(msg)
 
-    def save(self, image: sitk.Image | np.ndarray, **kwargs: str | int) -> Path:
+    def save(
+        self, image: sitk.Image | np.ndarray, **kwargs: str | int
+    ) -> Path:
         """Write the SimpleITK image to a NIFTI file.
 
         Parameters
@@ -105,12 +113,16 @@ class NIFTIWriter(AbstractBaseWriter):
                 raise NiftiWriterValidationError(msg)
 
         if (
-            (out_path := self.resolve_path(**kwargs)).exists()  # check if it exists
+            (
+                out_path := self.resolve_path(**kwargs)
+            ).exists()  # check if it exists
             # This will only be true if SKIP OR WARNING
             # OVERWRITE would have deleted the file
             and self.existing_file_mode == ExistingFileMode.SKIP
         ):
-            logger.debug("File exists, skipping.", kwargs=kwargs, out_path=out_path)
+            logger.debug(
+                "File exists, skipping.", kwargs=kwargs, out_path=out_path
+            )
             return out_path
 
         try:

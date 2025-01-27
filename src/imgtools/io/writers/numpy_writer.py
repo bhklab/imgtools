@@ -1,10 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
-import numpy as np
-
-from imgtools.logging import logger
-
 from .abstract_base_writer import AbstractBaseWriter
 
 
@@ -31,7 +27,9 @@ class NumPyWriter(AbstractBaseWriter):
     ]
 
     def __post_init__(self) -> None:
-        if not any(self.filename_format.endswith(ext) for ext in self.VALID_EXTENSIONS):
+        if not any(
+            self.filename_format.endswith(ext) for ext in self.VALID_EXTENSIONS
+        ):
             msg = (
                 f"Invalid filename format {self.filename_format}. "
                 f"Must end with one of {self.VALID_EXTENSIONS}."

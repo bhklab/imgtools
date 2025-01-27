@@ -135,7 +135,9 @@ class PET(sitk.Image):
                 self.df.AcquisitionTime, "%H%M%S.%f"
             )
             self.metadata["injection_time"] = datetime.datetime.strptime(
-                self.df.RadiopharmaceuticalInformationSequence[0].RadiopharmaceuticalStartTime,
+                self.df.RadiopharmaceuticalInformationSequence[
+                    0
+                ].RadiopharmaceuticalStartTime,
                 "%H%M%S.%f",
             )
             self.metadata["half_life"] = float(
@@ -186,7 +188,9 @@ class PET(sitk.Image):
                 df.AcquisitionTime, "%H%M%S.%f"
             )
             injection_time: datetime.datetime = datetime.datetime.strptime(
-                df.RadiopharmaceuticalInformationSequence[0].RadiopharmaceuticalStartTime,
+                df.RadiopharmaceuticalInformationSequence[
+                    0
+                ].RadiopharmaceuticalStartTime,
                 "%H%M%S.%f",
             )
             half_life: float = float(
@@ -200,7 +204,9 @@ class PET(sitk.Image):
                 ].RadionuclideTotalDose
             )
 
-            a: float = np.exp(-np.log(2) * ((scan_time - injection_time).seconds / half_life))
+            a: float = np.exp(
+                -np.log(2) * ((scan_time - injection_time).seconds / half_life)
+            )
 
             injected_dose_decay: float = a * injected_dose
         except Exception:

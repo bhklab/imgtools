@@ -266,7 +266,8 @@ class ImageTreeLoader(BaseLoader):
         if self.expand_paths:
             # paths = {col: glob.glob(path)[0] for col, path in paths.items()}
             paths = {
-                col: glob.glob(path)[0] if pd.notna(path) else None for col, path in paths.items()
+                col: glob.glob(path)[0] if pd.notna(path) else None
+                for col, path in paths.items()
             }
 
         for i, (col, path) in enumerate(paths.items()):
@@ -348,11 +349,14 @@ class ImageCSVLoader(BaseLoader):
         if self.expand_paths:
             # paths = {col: glob.glob(path)[0] for col, path in paths.items()}
             paths = {
-                col: glob.glob(path)[0] if pd.notna(path) else None for col, path in paths.items()
+                col: glob.glob(path)[0] if pd.notna(path) else None
+                for col, path in paths.items()
             }
 
         outputs = {
-            col: self.readers[i](path, series["series_" + ("_").join(col.split("_")[1:])])
+            col: self.readers[i](
+                path, series["series_" + ("_").join(col.split("_")[1:])]
+            )
             for i, (col, path) in enumerate(paths.items())
         }
         return self.output_tuple(**outputs)

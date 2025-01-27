@@ -171,7 +171,10 @@ def find_dicoms(
     files = (
         file.absolute()
         for file in glob_method(pattern)
-        if (not search_input or all(term in str(file.as_posix()) for term in search_input))
+        if (
+            not search_input
+            or all(term in str(file.as_posix()) for term in search_input)
+        )
         and _is_valid_dicom(file, check_header)
     )
 
@@ -182,7 +185,9 @@ def find_dicoms(
 # DICOM TAG UTILITIES
 ###############################################################################
 
-ALL_DICOM_TAGS: FrozenSet[str] = frozenset(value[4] for value in DicomDictionary.values())
+ALL_DICOM_TAGS: FrozenSet[str] = frozenset(
+    value[4] for value in DicomDictionary.values()
+)
 
 
 @functools.lru_cache(maxsize=1024)

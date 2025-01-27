@@ -13,7 +13,10 @@ from fasteners import InterProcessLock
 
 from imgtools.exceptions import DirectoryNotFoundError
 from imgtools.logging import logger
-from imgtools.pattern_parser import PatternResolver, MissingPlaceholderValueError
+from imgtools.pattern_parser import (
+    PatternResolver,
+    MissingPlaceholderValueError,
+)
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -114,7 +117,9 @@ class AbstractBaseWriter(ABC):
 
     overwrite_index: bool = field(
         default=False,
-        metadata={"help": "If True, overwrites the index file if it already exists."},
+        metadata={
+            "help": "If True, overwrites the index file if it already exists."
+        },
     )
 
     absolute_paths_in_index: bool = field(
@@ -225,7 +230,11 @@ class AbstractBaseWriter(ABC):
         """
         Helper for resolving paths with the given context.
         """
-        save_context = {**self._generate_datetime_strings(), **self.context, **kwargs}
+        save_context = {
+            **self._generate_datetime_strings(),
+            **self.context,
+            **kwargs,
+        }
         self.set_context(**save_context)
         try:
             filename = self.pattern_resolver.resolve(save_context)
@@ -390,7 +399,9 @@ class AbstractBaseWriter(ABC):
                 msg = f"File {out_path} already exists."
                 raise FileExistsError(msg)
             case ExistingFileMode.OVERWRITE:
-                logger.debug(f"File {out_path} exists. Deleting and overwriting.")
+                logger.debug(
+                    f"File {out_path} exists. Deleting and overwriting."
+                )
                 out_path.unlink()
 
         return out_path
@@ -588,7 +599,11 @@ class AbstractBaseWriter(ABC):
         )
         fieldnames = [
             filepath_column,
-            *(context.keys() if include_all_context else self.pattern_resolver.keys),
+            *(
+                context.keys()
+                if include_all_context
+                else self.pattern_resolver.keys
+            ),
         ]
 
         rows = []
@@ -627,13 +642,17 @@ class AbstractBaseWriter(ABC):
         try:
             with (
                 InterProcessLock(lock_file),
-                self.index_file.open(mode="w", newline="", encoding="utf-8") as f,
+                self.index_file.open(
+                    mode="w", newline="", encoding="utf-8"
+                ) as f,
             ):
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(rows)
         except Exception as e:
-            logger.exception(f"Error writing to index file {self.index_file}.", error=e)
+            logger.exception(
+                f"Error writing to index file {self.index_file}.", error=e
+            )
             raise
 
 
@@ -687,7 +706,10 @@ if __name__ == "__main__":
     files_per_process = 5
 
     def write_files_in_process(
-        process_id: int, writer_config: Dict[str, Any], file_count: int, mode: str
+        process_id: int,
+        writer_config: Dict[str, Any],
+        file_count: int,
+        mode: str,
     ):
         """
         Worker function for a process to write files using ExampleWriter.
@@ -705,7 +727,9 @@ if __name__ == "__main__":
                 writer.save(content, **context, experiment_type=mode)
 
     def run_multiprocessing(
-        writer_config: Dict[str, Any], num_processes: int, files_per_process: int
+        writer_config: Dict[str, Any],
+        num_processes: int,
+        files_per_process: int,
     ):
         """
         Run file-writing tasks using multiprocessing.
@@ -714,7 +738,12 @@ if __name__ == "__main__":
         for process_id in range(num_processes):
             p = multiprocessing.Process(
                 target=write_files_in_process,
-                args=(process_id, writer_config, files_per_process, "multiprocessing"),
+                args=(
+                    process_id,
+                    writer_config,
+                    files_per_process,
+                    "multiprocessing",
+                ),
             )
             processes.append(p)
             p.start()
@@ -723,7 +752,9 @@ if __name__ == "__main__":
             p.join()
 
     def run_single_process(
-        writer_config: Dict[str, Any], num_processes: int, files_per_process: int
+        writer_config: Dict[str, Any],
+        num_processes: int,
+        files_per_process: int,
     ):
         """
         Run file-writing tasks sequentially without multiprocessing.
@@ -746,7 +777,9 @@ if __name__ == "__main__":
     }
 
     try:
-        writer = ExampleWriter(**writer_config, context={"experiment_type": "test"})
+        writer = ExampleWriter(
+            **writer_config, context={"experiment_type": "test"}
+        )
     except:
         logger.exception("Error creating writer.")
     else:
@@ -763,8 +796,12 @@ if __name__ == "__main__":
     start_time = time.time()
     run_single_process(writer_config, num_processes, files_per_process)
     single_process_duration = time.time() - start_time
-    print(f"Time taken with multiprocessing: {multiprocessing_duration:.2f} seconds")
-    print(f"Time taken without multiprocessing: {single_process_duration:.2f} seconds")
+    print(
+        f"Time taken with multiprocessing: {multiprocessing_duration:.2f} seconds"
+    )
+    print(
+        f"Time taken without multiprocessing: {single_process_duration:.2f} seconds"
+    )
 
     # Compare times
     time_difference = single_process_duration - multiprocessing_duration
@@ -775,7 +812,9 @@ if __name__ == "__main__":
     )
     # Calculate and print the percentage improvement
     improvement_percentage = (time_difference / single_process_duration) * 100
-    print(f"Multiprocessing improved the performance by {improvement_percentage:.2f}%")
+    print(
+        f"Multiprocessing improved the performance by {improvement_percentage:.2f}%"
+    )
 
     # Output:
     # 4 procs and 100 files per proc

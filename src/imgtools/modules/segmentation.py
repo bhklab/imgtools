@@ -344,7 +344,9 @@ class Segmentation(sitk.Image):
             # Background is stored implicitly and needs to be computed
             label_arr = sitk.GetArrayViewFromImage(self)
             # Create a binary image where background is 1 and other regions are 0
-            label_img = sitk.GetImageFromArray((label_arr.sum(-1) == 0).astype(np.uint8))
+            label_img = sitk.GetImageFromArray(
+                (label_arr.sum(-1) == 0).astype(np.uint8)
+            )
         else:
             # Retrieve the label image for the given label index
             label_img = sitk.VectorIndexSelectionCast(self, label - 1)
@@ -413,7 +415,9 @@ class Segmentation(sitk.Image):
         if len(mask_arr.shape) == 4:
             for i in range(mask_arr.shape[0]):
                 slc = mask_arr[i, :, :, :]
-                slc *= list(self.roi_indices.values())[
+                slc *= list(
+                    self.roi_indices.values()
+                )[
                     i
                 ]  # everything is 0 or 1, so this is fine to convert filled voxels to label indices
                 if verbose:

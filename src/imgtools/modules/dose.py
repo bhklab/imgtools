@@ -119,7 +119,9 @@ class Dose(sitk.Image):
 
                 # ROI ID
                 roi_reference = (
-                    self.df.DVHSequence[i].DVHReferencedROISequence[0].ReferencedROINumber
+                    self.df.DVHSequence[i]
+                    .DVHReferencedROISequence[0]
+                    .ReferencedROINumber
                 )
 
                 # Make dictionary for each ROI ID
@@ -142,7 +144,9 @@ class Dose(sitk.Image):
                 self.dvh[roi_reference]["min_dose"] = min_dose
                 self.dvh[roi_reference]["total_vol"] = tot_vol
         except AttributeError:
-            logger.warning("No DVH information present in the DICOM. Returning empty dictionary")
+            logger.warning(
+                "No DVH information present in the DICOM. Returning empty dictionary"
+            )
             self.dvh = {}
 
         return self.dvh
