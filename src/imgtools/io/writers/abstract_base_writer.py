@@ -17,7 +17,7 @@ from typing import (
     Generic,
 )
 
-from fasteners import InterProcessLock
+from fasteners import InterProcessLock  # type: ignore
 
 from imgtools.exceptions import DirectoryNotFoundError
 from imgtools.logging import logger
@@ -541,7 +541,7 @@ class AbstractBaseWriter(ABC, Generic[ContentType]):
         include_all_context: bool = True,
         filepath_column: str = "path",
         replace_existing: bool = False,
-        **additional_context: Any,
+        **additional_context: object,
     ) -> None:
         """
         Add or update an entry in the shared CSV index file.
@@ -591,7 +591,8 @@ class AbstractBaseWriter(ABC, Generic[ContentType]):
             If True, checks if the file path already exists in the index and
             replaces it.
         **additional_context : Any
-            Additional context information to include in the CSV.
+            Additional context information to include in the CSV passed in as
+            keyword arguments.
 
         Notes
         -----

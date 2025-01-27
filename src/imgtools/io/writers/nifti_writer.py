@@ -29,7 +29,7 @@ class NiftiWriterIOError(NiftiWriterError):
 
 
 @dataclass
-class NIFTIWriter(AbstractBaseWriter):
+class NIFTIWriter(AbstractBaseWriter[sitk.Image | np.ndarray]):
     """Class for managing file writing with customizable paths and filenames for NIFTI files."""
 
     compression_level: int = field(
@@ -76,18 +76,16 @@ class NIFTIWriter(AbstractBaseWriter):
             )
             raise NiftiWriterValidationError(msg)
 
-    def save(
-        self, image: sitk.Image | np.ndarray, **kwargs: str | int
-    ) -> Path:
+    def save(self, data: sitk.Image | np.ndarray, **kwargs: object) -> Path:
         """Write the SimpleITK image to a NIFTI file.
 
         Parameters
         ----------
-        image : sitk.Image | np.ndarray
+        data : sitk.Image | np.ndarray
             The SimpleITK image to save
         PatientID : str
             Required patient identifier
-        **kwargs : str | int
+        **kwargs : object
             Additional formatting parameters for the output path
 
         Returns
@@ -102,13 +100,13 @@ class NIFTIWriter(AbstractBaseWriter):
         NiftiWriterValidationError
             If image is invalid
         """
-        match image:
+        match data:
             case sitk.Image():
-                pass
+                image = data
             case np.ndarray():
                 logger.debug("Converting numpy array to SimpleITK image.")
-                image = sitk.GetImageFromArray(image)
-            case _:
+                image = sitk.GetImageFromArray(data)
+            case _:  # type: ignore
                 msg = "Input must be a SimpleITK Image or a numpy array"
                 raise NiftiWriterValidationError(msg)
 
@@ -151,6 +149,5 @@ class NIFTIWriter(AbstractBaseWriter):
             out_path,
             filepath_column="filepath",
             replace_existing=out_path.exists(),
-            **kwargs,  # any additional kwargs can be passed to the index
         )
         return out_path
