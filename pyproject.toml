@@ -55,6 +55,7 @@ classifiers = [
 [project.optional-dependencies]
 torch = ["torch", "torchio"]
 debug = ["pyvis"]
+hdf5 = ["h5py>=3.0.0"]
 test = [
   "pygithub>=2.5.0",
   "aiohttp>=3.8.1",
