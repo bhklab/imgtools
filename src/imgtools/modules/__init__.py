@@ -4,7 +4,7 @@ from .pet import PET
 from .scan import Scan
 from .segmentation import Segmentation, accepts_segmentations, map_over_labels
 from .sparsemask import SparseMask
-from .structureset import StructureSet
+from .structureset.structure_set import StructureSet
 
 __all__ = [
     "Segmentation",

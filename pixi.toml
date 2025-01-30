@@ -25,6 +25,7 @@ py312 = { features = ["py312", "test"], no-default-feature = true }
 ############################################## DEV ###############################################
 [feature.dev.pypi-dependencies]
 med-imagetools = { path = ".", editable = true, extras = ["all"]}
+snakeviz = ">=2.2.2, <3"
 
 [feature.dev.dependencies]
 ipython = "*"

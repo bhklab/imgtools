@@ -3,6 +3,7 @@ import os
 import pathlib
 from argparse import ArgumentParser
 
+import click
 import pandas as pd
 from joblib import Parallel, delayed
 from pydicom import dcmread
