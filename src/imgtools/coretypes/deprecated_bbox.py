@@ -418,3 +418,42 @@ class BoundingBox:
             max_coord.z += diff
 
         return BoundingBox(min=min_coord, max=max_coord)
+
+
+if __name__ == "__main__":
+    from rich import print
+
+    # Load example images
+    seg_image = sitk.ReadImage(
+        "/home/bioinf/bhklab/radiomics/readii-negative-controls/rawdata/HEAD-NECK-RADIOMICS-HN1/images/niftis/SubjectID-100_HN1339/RTSTRUCT_11267_GTV.nii.gz"
+    )
+    ct_image = sitk.ReadImage(
+        "/home/bioinf/bhklab/radiomics/readii-negative-controls/rawdata/HEAD-NECK-RADIOMICS-HN1/images/niftis/SubjectID-100_HN1339/CT_82918_original.nii.gz"
+    )
+    stats = sitk.LabelShapeStatisticsImageFilter()
+    stats.Execute(ct_image)
+
+    print(f"{ct_image.GetSize()=}")
+    print(f"{ct_image.GetDirection()=}")
+    print(f"{ct_image.GetSpacing()=}\n")
+
+    print(f"{ct_image.GetOrigin()=}")
+    print(f"{ct_image.TransformPhysicalPointToContinuousIndex(ct_image.GetOrigin())=}")
+    print(f"{ct_image.TransformPhysicalPointToIndex(ct_image.GetOrigin())=}\n")
+
+    print(f"{stats.GetBoundingBox(1)=}")
+    print(f"{stats.GetCentroid(1)=}")
+    print(f"{ct_image.TransformPhysicalPointToContinuousIndex(stats.GetCentroid(1))=}")
+    print(f"{ct_image.TransformPhysicalPointToIndex(stats.GetCentroid(1))=}")
+
+    # bbox = BoundingBox.bbox_from_mask(mask=seg_image)
+
+    # print(bbox)
+
+    # cropped_ct_image, cropped_seg_image = bbox.crop_image_and_mask(ct_image, seg_image)
+
+    # cropped_ct_image, cropped_seg_image = (
+    #     BoundingBox.bbox_from_mask(mask=seg_image)
+    #     .pad(padding=5)
+    #     .crop_image_and_mask(ct_image, seg_image)
+    # )
