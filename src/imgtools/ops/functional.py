@@ -62,6 +62,12 @@ def resample(
     -------
     sitk.Image
         The resampled image.
+
+    Examples
+    --------
+    >>> resampled_image = resample_image(example_image, [1, 1, 1])
+    >>> print(resampled_image.GetSpacing())
+    [1, 1, 1]
     """
 
     try:
@@ -152,6 +158,15 @@ def resize(
     -------
     sitk.Image
         The resized image.
+
+    Examples
+    --------
+    >>> print('Original Size:', example_image.GetSize())
+    Original Size: [512, 512, 97]
+
+    >>> resized_image = resize_image(example_image, [256, 256, 0])
+    >>> print('Resized Size:', resized_image.GetSize())
+    Resized Size: [256, 256, 97]
     """
 
     original_size = np.array(image.GetSize())
@@ -216,6 +231,10 @@ def zoom(
     -------
     sitk.Image
         The rescaled image.
+
+    Examples
+    -------
+    >>> zoomed_image = zoom_image(example_image, 2.0)
     """
     dimension = image.GetDimension()
 
@@ -262,6 +281,12 @@ def rotate(
     -------
     sitk.Image
         The rotated image.
+
+    Examples
+    --------
+    >>> size = example_image.GetSize()
+    >>> center_voxel = [size[i] // 2 for i in range(len(size))]
+    >>> rotated_image = rotate_image(example_image, center_voxel, [45, 45, 45])
     """
     if isinstance(rotation_centre, np.ndarray):
         rotation_centre = rotation_centre.tolist()
@@ -321,6 +346,12 @@ def crop(
     -------
     sitk.Image
         The cropped image.
+    
+    Examples
+    --------
+    >>> size = example_image.GetSize()
+    >>> center_voxel = [size[i] // 2 for i in range(len(size))]
+    >>> cropped_image = crop(example_image, center_voxel, [45, 45, 45])
     """
     crop_centre = np.asarray(crop_centre, dtype=np.float64)
     original_size = np.asarray(image.GetSize())
@@ -397,6 +428,12 @@ def bounding_box(mask: sitk.Image, label: int = 1) -> Tuple[Tuple, Tuple]:
         The bounding box location and size. The first tuple gives the
         coordinates of the corner closest to the origin and the second
         gives the size in pixels along each dimension.
+
+    Examples
+    --------
+    >>> box_coords = bounding_box(mask)
+    >>> print(box_coords)
+    ((201, 111, 79), (115, 103, 30))
     """
 
     if isinstance(mask, Segmentation):
@@ -434,6 +471,12 @@ def centroid(
     -------
     tuple
         The centroid coordinates.
+    
+    Examples
+    --------
+    >>> centre_coords = centroid(mask)
+    >>> print(centre_coords)
+    (259, 155, 88)
     """
 
     if isinstance(mask, Segmentation):
@@ -478,7 +521,11 @@ def crop_to_mask_bounding_box(
     Returns
     -------
     tuple of sitk.Image
-        The cropped image and mask.
+        The cropped image, the cropped mask, and the crop centre.
+    
+    Examples
+    --------
+    >>> cropped_image, cropped_mask, crop_centre = crop_to_mask_bounding_box(example_image, mask)
     """
 
     if isinstance(mask, Segmentation):
@@ -550,7 +597,7 @@ def window_intensity(
     Returns
     -------
     sitk.Image
-        The windowed intensity image.
+        The windowed intensity image
     """
     lower = level - window / 2
     upper = level + window / 2
